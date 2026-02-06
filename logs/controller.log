@@ -1,0 +1,1034 @@
+loading app ./ble_switch_13.py
+loading app ryu.controller.ofp_handler
+instantiating app ./ble_switch_13.py of BLEMeshSwitch13
+instantiating app ryu.controller.ofp_handler of OFPHandler
+BRICK BLEMeshSwitch13
+  CONSUMES EventOFPPacketIn
+  CONSUMES EventOFPSwitchFeatures
+BRICK ofp_event
+  PROVIDES EventOFPPacketIn TO {'BLEMeshSwitch13': {'main'}}
+  PROVIDES EventOFPSwitchFeatures TO {'BLEMeshSwitch13': {'config'}}
+  CONSUMES EventOFPEchoReply
+  CONSUMES EventOFPEchoRequest
+  CONSUMES EventOFPErrorMsg
+  CONSUMES EventOFPHello
+  CONSUMES EventOFPPortDescStatsReply
+  CONSUMES EventOFPPortStatus
+  CONSUMES EventOFPSwitchFeatures
+connected socket:<eventlet.greenio.base.GreenSocket object at 0x7033dfef0bb0> address:('127.0.0.1', 33758)
+connected socket:<eventlet.greenio.base.GreenSocket object at 0x7033dfef0e80> address:('127.0.0.1', 33774)
+hello ev <ryu.controller.ofp_event.EventOFPHello object at 0x7033dfe85460>
+move onto config mode
+EVENT ofp_event->BLEMeshSwitch13 EventOFPSwitchFeatures
+switch features ev version=0x4,msg_type=0x6,msg_len=0x20,xid=0xecdc57b8,OFPSwitchFeatures(auxiliary_id=0,capabilities=79,datapath_id=1,n_buffers=0,n_tables=254)
+move onto main mode
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+connected socket:<eventlet.greenio.base.GreenSocket object at 0x7033dfef0bb0> address:('127.0.0.1', 33790)
+hello ev <ryu.controller.ofp_event.EventOFPHello object at 0x7033dfe9e1f0>
+move onto config mode
+EVENT ofp_event->BLEMeshSwitch13 EventOFPSwitchFeatures
+switch features ev version=0x4,msg_type=0x6,msg_len=0x20,xid=0xefc04ada,OFPSwitchFeatures(auxiliary_id=0,capabilities=79,datapath_id=2,n_buffers=0,n_tables=254)
+move onto main mode
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+connected socket:<eventlet.greenio.base.GreenSocket object at 0x7033e1f40940> address:('127.0.0.1', 39282)
+connected socket:<eventlet.greenio.base.GreenSocket object at 0x7033dfef0ee0> address:('127.0.0.1', 39294)
+hello ev <ryu.controller.ofp_event.EventOFPHello object at 0x7033dfe85520>
+move onto config mode
+EVENT ofp_event->BLEMeshSwitch13 EventOFPSwitchFeatures
+switch features ev version=0x4,msg_type=0x6,msg_len=0x20,xid=0xac204781,OFPSwitchFeatures(auxiliary_id=0,capabilities=79,datapath_id=1,n_buffers=0,n_tables=254)
+move onto main mode
+connected socket:<eventlet.greenio.base.GreenSocket object at 0x7033dfe85df0> address:('127.0.0.1', 39304)
+hello ev <ryu.controller.ofp_event.EventOFPHello object at 0x7033dfe9e880>
+move onto config mode
+EVENT ofp_event->BLEMeshSwitch13 EventOFPSwitchFeatures
+switch features ev version=0x4,msg_type=0x6,msg_len=0x20,xid=0x8b865a7a,OFPSwitchFeatures(auxiliary_id=0,capabilities=79,datapath_id=2,n_buffers=0,n_tables=254)
+move onto main mode
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+📤 流表下发成功（优先级：0，超时：0s，转发端口：4294967293）
+
+✅ 收到数据包：端口4（86bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+📤 流表下发成功（优先级：0，超时：0s，转发端口：4294967293）
+
+✅ 收到数据包：端口1（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口3（86bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+📤 流表下发成功（优先级：0，超时：0s，转发端口：4294967293）
+📤 流表下发成功（优先级：0，超时：0s，转发端口：4294967293）
+
+✅ 收到数据包：端口1（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（86bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口2（86bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（86bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口2（110bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（110bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口5（110bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（110bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口3（86bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（86bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口3（110bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（110bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（110bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（110bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口3（110bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（110bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（86bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口2（110bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（86bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（110bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（86bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口5（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口5（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口2（86bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（86bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口3（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口3（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口2（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口2（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（203bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口4（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口3（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（230bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口3（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口3（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口5（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口2（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（110bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（230bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口1（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口2（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口2（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（110bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（203bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口4（230bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口1（230bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口4（218bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口1（230bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口2（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（203bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口3（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（90bytes）
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+Starting new HTTP connection (1): localhost:5000
+http://localhost:5000 "POST /api/logs HTTP/1.1" 200 26
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（230bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口1（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（218bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口1（203bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口4（218bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口1（218bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口4（203bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口3（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（203bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口2（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（218bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口5（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口3（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（218bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口2（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（203bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口1（203bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口2（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口3（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口5（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口3（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口2（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（203bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口1（203bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口2（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口3（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口5（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（203bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口1（203bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口3（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口2（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（42bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口3（42bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（42bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（42bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（76bytes）
+📝 IP端口映射：{'192.168.1.10': 1, '192.168.1.12': 3}
+✅ 解析BLE数据：
+  - 地址： *\aa:bb:cc:dd:ee:01 | 类型：temperature | 数值：26.8
+📤 转发到iot3的端口：3
+📤 流表下发成功（优先级：10，超时：30s，转发端口：3）
+
+✅ 收到数据包：端口3（104bytes）
+📝 IP端口映射：{'192.168.1.10': 1, '192.168.1.12': 3}
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（104bytes）
+📝 IP端口映射：{'192.168.1.10': 1, '192.168.1.12': 1}
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口3（42bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（42bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（42bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（42bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口2（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口3（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（203bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+connected socket:<eventlet.greenio.base.GreenSocket object at 0x7033e1f40940> address:('127.0.0.1', 59354)
+connected socket:<eventlet.greenio.base.GreenSocket object at 0x7033e0fb3b20> address:('127.0.0.1', 49040)
+hello ev <ryu.controller.ofp_event.EventOFPHello object at 0x7033e0986cd0>
+move onto config mode
+EVENT ofp_event->BLEMeshSwitch13 EventOFPSwitchFeatures
+switch features ev version=0x4,msg_type=0x6,msg_len=0x20,xid=0x7f97dd33,OFPSwitchFeatures(auxiliary_id=0,capabilities=79,datapath_id=1,n_buffers=0,n_tables=254)
+move onto main mode
+connected socket:<eventlet.greenio.base.GreenSocket object at 0x7033dfe85880> address:('127.0.0.1', 49046)
+hello ev <ryu.controller.ofp_event.EventOFPHello object at 0x7033dfe510a0>
+move onto config mode
+EVENT ofp_event->BLEMeshSwitch13 EventOFPSwitchFeatures
+switch features ev version=0x4,msg_type=0x6,msg_len=0x20,xid=0x8187f673,OFPSwitchFeatures(auxiliary_id=0,capabilities=79,datapath_id=2,n_buffers=0,n_tables=254)
+move onto main mode
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn
+
+✅ 收到数据包：端口1（203bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+📤 流表下发成功（优先级：0，超时：0s，转发端口：4294967293）
+📤 流表下发成功（优先级：0，超时：0s，转发端口：4294967293）
+
+✅ 收到数据包：端口5（86bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（86bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（86bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（86bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（86bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（110bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口3（86bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（110bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（86bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口3（110bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口3（110bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（110bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（110bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口3（86bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（86bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口5（110bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口2（110bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（110bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（110bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口2（110bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（110bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口2（86bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（86bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（203bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口2（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口2（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（230bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口5（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口5（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口2（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（110bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（230bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口4（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（203bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口3（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口3（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（230bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口1（230bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口1（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口3（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口3（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口3（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口5（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（230bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口1（218bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口2（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口2（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（110bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（70bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口1（203bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口3（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口2（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（230bytes）
+❌ 非BLE包（UDP端口5353≠5005），泛洪转发
+
+✅ 收到数据包：端口4（90bytes）
+❌ 非BLE包（UDP端口无≠5005），泛洪转发
+
+✅ 收到数据包：端口4（218bytes）
+EVENT ofp_event->BLEMeshSwitch13 EventOFPPacketIn

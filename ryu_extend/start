@@ -1,0 +1,120 @@
+# SDN IoT系统测试指南
+
+## 🚀 基础功能测试
+
+### 1. 系统启动
+```bash
+cd /home/zhang/桌面/ryucontronl/ryu_extend
+./start_project.sh
+```
+
+### 2. 启动网络拓扑
+```bash
+# 新终端中执行
+sudo mn -c && cd /home/zhang/桌面/ryucontronl/ryu_extend
+sudo python3 topology/iot_sdn_topology.py
+```
+
+### 3. 发送测试数据
+在mininet交互界面中执行：
+```bash
+# 先检查网络连通性
+mininet> iot1 ping 192.168.1.12 -c 3
+
+# 基础BLE数据测试
+mininet> iot1 python3 -c "import socket; s=socket.socket(socket.AF_INET, socket.SOCK_DGRAM); s.sendto(b'aa:bb:cc:dd:ee:01,temperature,26.8', ('192.168.1.12', 5005))"
+
+# 更多测试数据类型
+mininet> iot2 python3 -c "import socket; s=socket.socket(socket.AF_INET, socket.SOCK_DGRAM); s.sendto(b'aa:bb:cc:dd:ee:02,humidity,65.2', ('192.168.1.12', 5005))"
+
+mininet> iot3 python3 -c "import socket; s=socket.socket(socket.AF_INET, socket.SOCK_DGRAM); s.sendto(b'aa:bb:cc:dd:ee:03,light,450', ('192.168.1.12', 5005))"
+```
+
+sudo kill -9 $(cat /home/zhang/桌面/ryucontronl/ryu_extend/run.pid) && sudo mn -c
+
+## 🧪 功能测试
+
+### 4. Web面板验证
+访问：`http://localhost:5000`
+- 查看实时BLE数据日志
+- 观察交换机流表状态
+- 监控网络连通性
+
+### 5. 流表检查
+在mininet界面中执行：
+```bash
+mininet> sh ovs-ofctl dump-flows s1 -O OpenFlow13
+mininet> sh ovs-ofctl dump-flows s2 -O OpenFlow13
+```
+
+### 6. 连通性测试
+```bash
+mininet> iot1 ping iot3 -c 3
+mininet> iot2 ping h1 -c 3
+mininet> h2 ping iot4 -c 3
+```
+
+## 🛑 系统停止
+
+### 正常退出
+```bash
+# 在mininet界面
+mininet> exit
+
+# 停止所有服务
+cd /home/zhang/桌面/ryucontronl/ryu_extend
+sudo kill -9 $(cat run.pid) && sudo mn -c
+```
+
+### 清理网络残留
+```bash
+sudo mn -c
+sudo ovs-vsctl del-br s1 s2
+```
+
+## 📊 预期测试结果
+
+✅ **基础功能**：
+- 控制器正常启动并监听端口6634
+- Web面板正常运行在端口5000
+- Mininet拓扑成功创建(s1, s2交换机)
+- BLE数据能被正确解析和转发到iot3
+
+✅ **网络功能**：
+- 各主机间能够互相ping通
+- UDP数据包能正确转发
+- 流表能动态下发和更新
+
+✅ **Web可视化**：
+- 实时显示BLE数据日志
+- 展示交换机流表信息
+- 监控网络连通性状态
+- 显示BLE节点状态
+
+## ⚠️ 常见问题排查
+
+1. **端口占用**：
+   ```bash
+   sudo lsof -i:6634  # 检查控制器端口
+   sudo lsof -i:5000  # 检查面板端口
+   ```
+
+2. **OVS服务检查**：
+   ```bash
+   sudo systemctl status openvswitch-switch
+   sudo systemctl start openvswitch-switch  # 如果未启动
+   ```
+
+3. **网络连通性**：
+   ```bash
+   # 检查交换机状态
+   sudo ovs-vsctl show
+   
+   # 检查控制器连接
+   sudo ovs-ofctl show s1
+   ```
+
+4. **依赖检查**：
+   ```bash
+   pip install ryu==4.34 flask requests
+```
