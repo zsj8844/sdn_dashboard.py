@@ -1,0 +1,22 @@
+# 忽略 ryu 完整源码目录
+ryu/
+
+# 忽略 Python 编译文件
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 忽略日志文件
+logs/
+*.log
+
+# 忽略 PID 文件
+*.pid
+
+# 忽略 IDE 配置
+.idea/
+.vscode/
+
+# 忽略系统文件
+.DS_Store
+Thumbs.db
