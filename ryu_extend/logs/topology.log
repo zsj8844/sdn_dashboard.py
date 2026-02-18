@@ -22,20 +22,13 @@ rm -f ~/.ssh/mn/*
 *** Cleanup complete.
 ovs-vsctl: no bridge named s1
 ovs-vsctl: no bridge named s2
-*** Configuring hosts
-iot1 iot2 iot3 iot4 h1 h2 
-*** Starting controller
-c0 
-*** Starting 2 switches
-s1 s2 ...
-*** Starting CLI:
-mininet> 
-*** Stopping 1 controllers
-c0 
-*** Stopping 7 links
-.......
-*** Stopping 2 switches
-s1 s2 
-*** Stopping 6 hosts
-iot1 iot2 iot3 iot4 h1 h2 
-*** Done
+Traceback (most recent call last):
+  File "/home/zhang/桌面/ryucontronl/ryu_extend/topology/iot_sdn_topology.py", line 174, in <module>
+    create_iot_sdn_topology()
+  File "/home/zhang/桌面/ryucontronl/ryu_extend/topology/iot_sdn_topology.py", line 85, in create_iot_sdn_topology
+    s1 = net.addSwitch('s1', protocols='OpenFlow13')
+  File "/usr/lib/python3/dist-packages/mininet/net.py", line 266, in addSwitch
+    sw = cls( name, **defaults )
+  File "/home/zhang/桌面/ryucontronl/ryu_extend/topology/iot_sdn_topology.py", line 76, in <lambda>
+    switch=lambda name, **kwargs: OVSKernelSwitch(name, protocols='OpenFlow13', **kwargs),
+TypeError: mininet.node.OVSSwitch() got multiple values for keyword argument 'protocols'

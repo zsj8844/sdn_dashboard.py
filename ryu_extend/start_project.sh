@@ -1,19 +1,17 @@
 #!/bin/bash
 set -euo pipefail
 
-# ==================== 核心配置（已适配你的环境）====================
+# ==================== 核心配置 ====================
 PROJECT_DIR="/home/zhang/桌面/ryucontronl/ryu_extend"
-VENV_PYTHON="/home/zhang/miniconda3/envs/ryu-env/bin/python"  # 你的虚拟环境Python路径
+VENV_PYTHON="/home/zhang/miniconda3/envs/ryu-env/bin/python"
 VENV_PYTHON3="/home/zhang/miniconda3/envs/ryu-env/bin/python3"
 CONTROLLER_SCRIPT="switch/ble_switch_13.py"
 DASHBOARD_SCRIPT="templates/sdn_dashboard.py"
 TOPOLOGY_SCRIPT="topology/iot_sdn_topology.py"
 CONTROLLER_PORT=6634
 DASHBOARD_PORT=5000
-TEST_TARGET_IP="192.168.1.12"
-TEST_TARGET_PORT=5005
 
-# ==================== 日志/进程文件 ====================
+# ==================== 日志文件 ====================
 LOG_DIR="$PROJECT_DIR/logs"
 CONTROLLER_LOG="$LOG_DIR/controller.log"
 DASHBOARD_LOG="$LOG_DIR/dashboard.log"
@@ -52,7 +50,6 @@ clean_env() {
 check_venv() {
     info "验证虚拟环境..."
     [ ! -f "$VENV_PYTHON" ] && error "Python路径不存在：$VENV_PYTHON"
-    # 检查Ryu是否安装
     if ! $VENV_PYTHON -c "import ryu.cmd.manager" >/dev/null 2>&1; then
         info "ryu-env中未安装Ryu，开始自动安装..."
         $VENV_PYTHON -m pip install ryu==4.34 || error "Ryu安装失败！手动执行：$VENV_PYTHON -m pip install ryu==4.34"
@@ -80,9 +77,13 @@ start_dashboard() {
 start_topology() {
     info "启动Mininet拓扑..."
     cd "$PROJECT_DIR" || error "项目目录不存在"
-    sudo python3 "$TOPOLOGY_SCRIPT" > "$TOPOLOGY_LOG" 2>&1 &
-    echo $! >> "$PID_FILE"
-    info "拓扑PID：$(tail -n1 $PID_FILE)，日志：$TOPOLOGY_LOG"
+    # 使用nohup后台启动，避免交互式CLI阻塞
+    sudo nohup python3 "$TOPOLOGY_SCRIPT" > "$TOPOLOGY_LOG" 2>&1 &
+    TOPOLOGY_PID=$!
+    echo $TOPOLOGY_PID >> "$PID_FILE"
+    info "拓扑PID：$TOPOLOGY_PID，日志：$TOPOLOGY_LOG"
+    # 等待拓扑初始化完成
+    sleep 5
 }
 
 # ==================== 检查服务 ====================
@@ -108,10 +109,34 @@ check_service() {
     done
 }
 
+# ==================== 测试功能 ====================
+test_components() {
+    info "开始自动化测试..."
+    
+    # 等待服务稳定
+    sleep 5
+    
+    # 运行转发测试
+    info "运行网关转发测试..."
+    if [ -f "$PROJECT_DIR/switch/test/gateway_forwarding_test.py" ]; then
+        $VENV_PYTHON3 "$PROJECT_DIR/switch/test/gateway_forwarding_test.py" || warning "转发测试执行失败"
+    else
+        warning "转发测试脚本不存在"
+    fi
+    
+    # 运行全链路测试
+    info "运行全链路测试..."
+    if [ -f "$PROJECT_DIR/switch/test/full_chain_test.py" ]; then
+        $VENV_PYTHON3 "$PROJECT_DIR/switch/test/full_chain_test.py" || warning "全链路测试执行失败"
+    else
+        warning "全链路测试脚本不存在"
+    fi
+}
+
 # ==================== 主流程 ====================
 main() {
     info "========================================"
-    info "🚀 开始一键部署SDN项目（适配你的环境）"
+    info "🚀 开始一键部署SDN项目"
     info "========================================"
     init_env
     clean_env
@@ -121,13 +146,59 @@ main() {
     start_topology
     check_service
     info "========================================"
-    info "🎉 部署完成！"
+    info "🎉 基础部署完成！"
     info "控制器日志：tail -f $CONTROLLER_LOG"
     info "监控面板：http://localhost:$DASHBOARD_PORT"
-    info "停止服务：sudo kill -9 \$(cat $PID_FILE) && sudo mn -c"
     info "========================================"
 }
 
-main
+# ==================== 完整流程 ====================
+full_deployment() {
+    info "========================================"
+    info "🚀 开始完整部署流程（含测试）"
+    info "========================================"
+    init_env
+    clean_env
+    check_venv
+    start_controller
+    start_dashboard
+    start_topology
+    check_service
+    test_components
+    info "========================================"
+    info "🎉 完整部署完成！含自动化测试"
+    info "控制器日志：tail -f $CONTROLLER_LOG"
+    info "监控面板：http://localhost:$DASHBOARD_PORT"
+    info "========================================"
+}
 
+# ==================== 帮助信息 ====================
+show_help() {
+    echo "用法: $0 [选项]"
+    echo "选项:"
+    echo "  deploy     部署基础SDN环境（默认）"
+    echo "  full       完整部署（含自动化测试）"
+    echo "  clean      清理所有进程和网络"
+    echo "  help       显示帮助信息"
+    echo ""
+    echo "测试相关：请使用 ./run_tests.sh"
+}
 
+# ==================== 参数处理 ====================
+case "${1:-deploy}" in
+    deploy)
+        main
+        ;;
+    full)
+        full_deployment
+        ;;
+    clean)
+        clean_env
+        ;;
+    help)
+        show_help
+        ;;
+    *)
+        error "未知选项: $1\n$(show_help)"
+        ;;
+esac

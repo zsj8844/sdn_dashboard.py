@@ -45,6 +45,21 @@ ryu_extend/
 - Mininet 2.3.0
 - Open vSwitch 2.13+
 
+### 安装依赖
+
+```bash
+# 安装 Ryu 控制器
+pip install ryu
+
+# 安装 Mininet (Ubuntu/Debian)
+sudo apt-get install mininet
+
+# 或者从源码安装 Ryu (推荐用于开发)
+git clone https://github.com/faucetsdn/ryu.git
+cd ryu
+pip install .
+```
+
 ### 一键部署
 
 ```bash

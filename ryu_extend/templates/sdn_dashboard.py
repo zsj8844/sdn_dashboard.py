@@ -10,13 +10,14 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__, template_folder='.')
-app.config['JSON_AS_ASCII'] = False  # 支持中文JSON
+app.config['JSON_AS_ASCII'] = False
 
-# 基础配置（原有）
+# 基础配置
 DEVICES = {
     "控制器": ["c0 (Ryu, 127.0.0.1:6634)"],
     "交换机": ["s1 (OpenFlow13)", "s2 (OpenFlow13)"],
-    "物联网设备": ["iot1 (温度传感器, 192.168.1.10)", "iot2 (湿度传感器, 192.168.1.11)", "iot3 (网关, 192.168.1.12)"],
+    "物联网设备": ["iot1 (温度传感器, 192.168.1.10)", "iot2 (湿度传感器, 192.168.1.11)", 
+                   "iot3 (网关, 192.168.1.12)", "iot4 (位置传感器, 192.168.1.13)"],
     "传统主机": ["h1 (终端, 192.168.1.20)", "h2 (终端, 192.168.1.21)"]
 }
 
@@ -29,7 +30,6 @@ BLE_MESH_NODES = [
 ]
 CONNECTIVITY_STATUS = {}
 
-# 原始流表查询逻辑（原有）
 def get_switch_flows(switch_name):
     try:
         result = subprocess.run(
@@ -37,14 +37,10 @@ def get_switch_flows(switch_name):
             capture_output=True, text=True, timeout=5
         )
         if result.returncode == 0:
-            flows = [line.strip() for line in result.stdout.split("\n") if line.strip()]
-            logger.info(f"获取{switch_name}流表成功，共{len(flows)}条记录")
-            return flows
+            return [line.strip() for line in result.stdout.split("\n") if line.strip()]
         else:
-            logger.warning(f"获取{switch_name}流表失败: {result.stderr}")
             return []
-    except Exception as e:
-        logger.error(f"获取{switch_name}流表异常: {e}")
+    except Exception:
         return []
 
 def check_connectivity_by_flows():
@@ -53,7 +49,6 @@ def check_connectivity_by_flows():
             s1_flows = get_switch_flows("s1")
             s2_flows = get_switch_flows("s2")
             
-            # 连通性判断
             has_ble_flow = any("priority=10" in flow and "udp_dst=5005" in flow for flow in s1_flows)
             has_ble_log = len(BLE_MESH_LOG) > 0
             iot_gateway_status = "✅ 已连通" if has_ble_flow or has_ble_log else "❌ 未连通"
@@ -65,16 +60,14 @@ def check_connectivity_by_flows():
                 "控制器 → 交换机": controller_switch_status
             }
             
-            # 更新节点状态
             gateway_online = has_ble_flow or has_ble_log
             for node in BLE_MESH_NODES:
-                if node["id"] == "aa:bb:cc:dd:ee:03":  # 网关节点
+                if node["id"] == "aa:bb:cc:dd:ee:03":
                     node["status"] = "在线" if gateway_online else "离线"
                 else:
                     recent_activity = any(node["id"] in log for log in BLE_MESH_LOG)
                     node["status"] = "在线" if recent_activity else "离线"
                 
-                # 模拟RSSI和电池变化
                 if node["status"] == "在线":
                     node["rssi"] = max(-90, min(-50, node["rssi"] + (int(time.time()) % 3 - 1)))
                     node["battery"] = min(100, node["battery"] + 1) if node["battery"] < 100 else 100
@@ -86,8 +79,6 @@ def check_connectivity_by_flows():
             logger.error(f"连通性检测异常: {e}")
         time.sleep(5)
 
-
-# 原始BLE数据监听（原有，保留，兼容直接发送到Web的BLE数据）
 def listen_ble_mesh_data():
     try:
         import socket
@@ -113,7 +104,20 @@ def listen_ble_mesh_data():
         time.sleep(5)
         listen_ble_mesh_data()
 
-# ---------------------- 新增日志接收接口（仅这6行）----------------------
+# 路由定义
+@app.route("/")
+def index():
+    return render_template("dashboard.html", devices=DEVICES)
+
+@app.route("/health")
+def health_check():
+    return jsonify({
+        "status": "healthy",
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "ble_logs_count": len(BLE_MESH_LOG),
+        "nodes_online": sum(1 for node in BLE_MESH_NODES if node["status"] == "在线")
+    })
+
 @app.route('/api/logs', methods=['POST'])
 def receive_logs():
     try:
@@ -130,20 +134,6 @@ def receive_logs():
     except Exception as e:
         logger.error(f"接收日志失败: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
-# -------------------------------------------------------------------
-
-@app.route("/")
-def index():
-    return render_template("dashboard.html", devices=DEVICES)
-
-@app.route("/health")
-def health_check():
-    return jsonify({
-        "status": "healthy",
-        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "ble_logs_count": len(BLE_MESH_LOG),
-        "nodes_online": sum(1 for node in BLE_MESH_NODES if node["status"] == "在线")
-    })
 
 @app.route("/api/data")
 def api_data():
@@ -157,15 +147,26 @@ def api_data():
         "s2_flows": get_switch_flows("s2")[:10]
     })
 
+@app.route('/api/clear-data', methods=['POST'])
+def clear_data():
+    try:
+        BLE_MESH_LOG.clear()
+        for node in BLE_MESH_NODES:
+            node["status"] = "离线"
+            node["rssi"] = -100
+            node["battery"] = 100
+        CONNECTIVITY_STATUS.clear()
+        logger.info("数据已清空")
+        return jsonify({"status": "success", "message": "数据清空完成"}), 200
+    except Exception as e:
+        logger.error(f"清空数据失败: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 if __name__ == "__main__":
-    # 启动后台线程
     threading.Thread(target=listen_ble_mesh_data, daemon=True, name="BLE_Listener").start()
     threading.Thread(target=check_connectivity_by_flows, daemon=True, name="Connectivity_Checker").start()
     
     logger.info("SDN IoT 监控面板启动")
     logger.info("访问地址: http://localhost:5000")
-    logger.info("API接口: POST /api/logs")
     
     app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)
-
-

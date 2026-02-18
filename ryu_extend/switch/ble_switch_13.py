@@ -14,6 +14,16 @@ BLE_ADDR_MATCH = 1001
 BLE_OUTPUT_ACTION = 1002
 MY_EXPERIMENTER_ID = 0xdeadbeef
 
+# 扩展字段可用性标志
+EXTENSIONS_AVAILABLE = False
+
+# 尝试导入扩展模块
+try:
+    from extensions.manager import IoTExtensionManager, create_iot_extension
+    EXTENSIONS_AVAILABLE = True
+except ImportError:
+    EXTENSIONS_AVAILABLE = False
+
 class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
@@ -21,6 +31,15 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
         super().__init__(*args, **kwargs)
         self.ble_port_map = {}
         self.ip_port_map = {}  # 存储IP→端口映射，动态找iot3端口
+        
+        # OpenFlow扩展字段功能初始化
+        self.extension_enabled = EXTENSIONS_AVAILABLE
+        if self.extension_enabled:
+            self.logger.info("OpenFlow扩展字段功能已启用")
+            self.test_extension_functionality()
+        else:
+            self.logger.warning("OpenFlow扩展字段功能不可用")
+            
         self.logger.info("BLE Mesh Switch 13 初始化完成")
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -73,7 +92,8 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
             if ip_pkt:
                 src_ip = ip_pkt.src
                 self.ip_port_map[src_ip] = in_port
-                self.ip_port_map.setdefault('192.168.1.12', 3)
+                # 在新的层级拓扑中，需要动态发现iot3网关端口
+                # iot3现在通过其他IoT设备连接，端口需要动态学习
                 self.logger.debug(f"IP端口映射更新: {self.ip_port_map}")
             if not (ip_pkt and udp_pkt and udp_pkt.dst_port == 5005):
                 self.logger.debug(f"非BLE包 (UDP端口{udp_pkt.dst_port if udp_pkt else '无'}≠5005)，泛洪转发")
@@ -96,6 +116,10 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
                 self.ble_port_map[ble_addr] = in_port
                 self.logger.info(f"解析BLE数据 - 地址:{ble_addr} | 类型:{ble_type} | 数值:{ble_value}")
 
+                # 创建IoT扩展字段（演示用途）
+                if self.extension_enabled:
+                    self.process_iot_extension(ble_type, ble_value)
+
                 # 推送日志到Web面板
                 try:
                     log_data = {"ble_addr": ble_addr, "type": ble_type, "value": ble_value, "src_ip": ip_pkt.src}
@@ -103,7 +127,17 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
                 except Exception as e:
                     self.logger.warning(f"日志推送失败 (Web未启动?): {e}")
 
-                iot3_port = self.ip_port_map.get('192.168.1.12', 3)
+                # 获取iot3网关端口（需要从动态学习的映射中获取）
+                iot3_port = None
+                for ip, port in self.ip_port_map.items():
+                    if '192.168.1.12' in ip or 'iot3' in ip.lower():
+                        iot3_port = port
+                        break
+                
+                if iot3_port is None:
+                    self.logger.warning("未找到iot3网关端口，使用泛洪转发")
+                    self._send_packet_out(datapath, in_port, msg.buffer_id, msg.data, ofproto.OFPP_FLOOD)
+                    return
                 self.logger.info(f"转发到iot3的端口: {iot3_port}")
                 parser = datapath.ofproto_parser
                 match = parser.OFPMatch(eth_type=0x0800, ip_proto=17, udp_dst=5005)
@@ -133,6 +167,76 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
             datapath.send_msg(out)
         except Exception as e:
             self.logger.error(f"数据包转发失败: {e}")
+    
+    def test_extension_functionality(self):
+        """测试扩展字段功能"""
+        try:
+            # 创建测试扩展字段
+            ext_mgr = create_iot_extension(
+                sensor_type='temp',
+                device_priority=3,
+                route_select='route_a'
+            )
+            
+            # 序列化测试
+            serialized = ext_mgr.serialize_to_experimenter()
+            self.logger.info(f"扩展字段序列化测试成功 ({len(serialized)} bytes)")
+            
+            # 反序列化测试
+            parsed_mgr = IoTExtensionManager.parse_from_experimenter(serialized)
+            field_dict = parsed_mgr.get_field_dict()
+            self.logger.info(f"扩展字段反序列化测试成功: {field_dict}")
+            
+        except Exception as e:
+            self.logger.error(f"扩展字段功能测试失败: {e}")
+            self.extension_enabled = False
+    
+    def process_iot_extension(self, ble_type, ble_value):
+        """处理IoT扩展字段"""
+        try:
+            # 根据BLE数据类型创建相应的扩展字段
+            sensor_mapping = {
+                'temp': 'temp',
+                'temperature': 'temp',
+                'humidity': 'humidity',
+                'light': 'light',
+                'motion': 'motion',
+                'pressure': 'pressure'
+            }
+            
+            sensor_type = sensor_mapping.get(ble_type.lower(), 'temp')
+            
+            # 根据数值确定优先级
+            try:
+                value_float = float(ble_value)
+                if value_float > 80:  # 高温/高湿等紧急情况
+                    priority = 5
+                elif value_float > 50:  # 较高值
+                    priority = 4
+                elif value_float > 30:  # 正常偏高
+                    priority = 3
+                else:  # 正常范围
+                    priority = 2
+            except ValueError:
+                priority = 2  # 默认优先级
+            
+            # 创建扩展字段
+            ext_mgr = create_iot_extension(
+                sensor_type=sensor_type,
+                device_priority=priority,
+                route_select='route_a'
+            )
+            
+            # 打印扩展字段信息
+            self.logger.info("IoT扩展字段已创建:")
+            ext_mgr.print_fields()
+            
+            # 序列化用于实际传输
+            serialized_data = ext_mgr.serialize_to_experimenter()
+            self.logger.debug(f"扩展字段序列化完成 ({len(serialized_data)} bytes)")
+            
+        except Exception as e:
+            self.logger.warning(f"处理IoT扩展字段时出错: {e}")
 
 if __name__ == '__main__':
     import sys
