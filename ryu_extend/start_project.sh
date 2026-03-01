@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ==================== 核心配置 ====================
-PROJECT_DIR="/home/zhang/桌面/ryucontronl/ryu_extend"
+PROJECT_DIR="/home/zhang/桌面/ryucontronl2/ryu_extend"
 VENV_PYTHON="/home/zhang/miniconda3/envs/ryu-env/bin/python"
 VENV_PYTHON3="/home/zhang/miniconda3/envs/ryu-env/bin/python3"
 CONTROLLER_SCRIPT="switch/ble_switch_13.py"
@@ -143,12 +143,14 @@ main() {
     check_venv
     start_controller
     start_dashboard
-    start_topology
+    # start_topology  # 已注释，手动启动拓扑
     check_service
     info "========================================"
     info "🎉 基础部署完成！"
     info "控制器日志：tail -f $CONTROLLER_LOG"
-    info "监控面板：http://localhost:$DASHBOARD_PORT"
+    info "普通面板：http://localhost:$DASHBOARD_PORT"
+    info "增强版面板：http://localhost:$DASHBOARD_PORT/enhanced"
+    info "增强功能：OpenFlow 1.3、拓扑管理、流表管理"
     info "========================================"
 }
 
@@ -162,13 +164,15 @@ full_deployment() {
     check_venv
     start_controller
     start_dashboard
-    start_topology
+    # start_topology  # 已注释，手动启动拓扑
     check_service
     test_components
     info "========================================"
     info "🎉 完整部署完成！含自动化测试"
     info "控制器日志：tail -f $CONTROLLER_LOG"
-    info "监控面板：http://localhost:$DASHBOARD_PORT"
+    info "普通面板：http://localhost:$DASHBOARD_PORT"
+    info "增强版面板：http://localhost:$DASHBOARD_PORT/enhanced"
+    info "增强功能：OpenFlow 1.3、拓扑管理、流表管理"
     info "========================================"
 }
 
@@ -180,6 +184,15 @@ show_help() {
     echo "  full       完整部署（含自动化测试）"
     echo "  clean      清理所有进程和网络"
     echo "  help       显示帮助信息"
+    echo ""
+    echo "增强功能:"
+    echo "  - OpenFlow 1.3 协议支持 (流表下发 / 统计收集)"
+    echo "  - 拓扑管理 (自动发现 + 可视化)"
+    echo "  - 流表管理 (增删改查 + 多级流表)"
+    echo ""
+    echo "访问地址:"
+    echo "  - 普通面板: http://localhost:5000"
+    echo "  - 增强版面板: http://localhost:5000/enhanced"
     echo ""
     echo "测试相关：请使用 ./run_tests.sh"
 }

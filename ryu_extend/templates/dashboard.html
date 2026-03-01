@@ -8,17 +8,35 @@
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
         .container { max-width: 1400px; margin: 0 auto; }
-        h1 { text-align: center; color: white; margin-bottom: 30px; font-size: 2.5rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
-        .section { background: rgba(255,255,255,0.95); border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.1); padding: 25px; margin-bottom: 25px; backdrop-filter: blur(10px); }
+        h1 { text-align: center; color: white; margin-bottom: 20px; font-size: 2.5rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+        .top-status-bar { display: flex; justify-content: space-around; background: rgba(255,255,255,0.9); border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.1); padding: 20px; margin-bottom: 30px; backdrop-filter: blur(10px); animation: fadeIn 0.5s ease-in-out; }
+        .status-item { text-align: center; flex: 1; }
+        .status-item .title { font-weight: 600; color: #4a5568; font-size: 14px; margin-bottom: 8px; }
+        .status-item .value { font-size: 20px; font-weight: 700; color: #2d3748; }
+        .status-item .value.positive { color: #48bb78; }
+        .status-item .value.negative { color: #e53e3e; }
+        .status-item .indicator { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; }
+        .status-connected { background-color: #48bb78; }
+        .status-disconnected { background-color: #e53e3e; }
+        .section { background: rgba(255,255,255,0.95); border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.1); padding: 25px; margin-bottom: 25px; backdrop-filter: blur(10px); animation: slideUp 0.5s ease-out; }
         .section h2 { color: #2d3748; margin-bottom: 20px; font-size: 1.5rem; display: flex; align-items: center; }
         .section h2::before { content: ""; width: 6px; height: 24px; background: linear-gradient(to bottom, #667eea, #764ba2); margin-right: 12px; border-radius: 3px; }
-        .status-grid, .ble-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
-        .status-card, .ble-card { padding: 20px; border-radius: 10px; border: 1px solid #e2e8f0; background: white; transition: transform 0.2s, box-shadow 0.2s; }
-        .status-card:hover, .ble-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .status-grid, .ble-grid, .controller-grid, .overview-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+        .status-card, .ble-card, .controller-card, .overview-card { padding: 20px; border-radius: 10px; border: 1px solid #e2e8f0; background: white; transition: all 0.3s ease; position: relative; overflow: hidden; }
+        .status-card:hover, .ble-card:hover, .controller-card:hover, .overview-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
+        .status-card::before, .ble-card::before, .controller-card::before, .overview-card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: linear-gradient(to right, #667eea, #764ba2); transform: scaleX(0); transform-origin: left; transition: transform 0.3s ease; }
+        .status-card:hover::before, .ble-card:hover::before, .controller-card:hover::before, .overview-card:hover::before { transform: scaleX(1); }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         .status-card .label { color: #718096; font-size: 15px; margin-bottom: 8px; }
         .status-card .value { color: #2d3748; font-size: 18px; font-weight: 600; }
         .value.online { color: #48bb78; }
         .value.offline { color: #e53e3e; }
+        .controller-card .label { color: #718096; font-size: 15px; margin-bottom: 8px; }
+        .controller-card .value { color: #2d3748; font-size: 18px; font-weight: 600; }
+        .connection-status { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 14px; font-weight: 600; }
+        .connected { background-color: #e6fffa; color: #069c8f; }
+        .disconnected { background-color: #ffeef0; color: #e53e3e; }
         .ble-card { display: flex; flex-direction: column; gap: 12px; }
         .ble-card .id { font-weight: 700; color: #2d3748; font-size: 16px; }
         .ble-card .info { font-size: 14px; color: #718096; display: flex; justify-content: space-between; align-items: center; }
@@ -32,10 +50,17 @@
         .flow-item:last-child, .log-item:last-child { border-bottom: none; }
         .flow-item:hover { background: #ebf8ff; border-left: 3px solid #667eea; padding-left: 9px; }
         .refresh-indicator { position: fixed; top: 20px; right: 20px; background: #48bb78; color: white; padding: 8px 16px; border-radius: 20px; font-size: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+        .top-status-bar { display: flex; justify-content: space-around; background: rgba(255,255,255,0.9); border-radius: 10px; padding: 15px; margin-bottom: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .status-item { text-align: center; }
+        .status-item .title { font-weight: 600; color: #4a5568; font-size: 14px; }
+        .status-item .indicator { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; }
+        .status-connected { background-color: #48bb78; }
+        .status-disconnected { background-color: #e53e3e; }
         @media (max-width: 768px) {
             .container { padding: 10px; }
             h1 { font-size: 2rem; }
-            .status-grid, .ble-grid { grid-template-columns: 1fr; }
+            .status-grid, .ble-grid, .controller-grid { grid-template-columns: 1fr; }
+            .top-status-bar { flex-direction: column; gap: 10px; }
         }
     </style>
 </head>
@@ -43,9 +68,33 @@
     <div class="container">
         <h1>SDN IoT 网络监控仪表盘</h1>
 
+        <div class="top-status-bar" id="top-status-bar">
+            <div class="status-item">
+                <div class="title">交换机在线</div>
+                <div class="value" id="switches-online-count">0</div>
+            </div>
+            <div class="status-item">
+                <div class="title">BLE节点在线</div>
+                <div class="value" id="ble-nodes-online-count">0</div>
+            </div>
+            <div class="status-item">
+                <div class="title">系统状态</div>
+                <div class="value" id="system-status">正常</div>
+            </div>
+            <div class="status-item">
+                <div class="title">上次更新</div>
+                <div class="value" id="last-update-time">--</div>
+            </div>
+        </div>
+
         <div class="section">
-            <h2>网络连通性状态</h2>
-            <div class="status-grid" id="connectivity-container"></div>
+            <h2>系统概览</h2>
+            <div class="overview-grid" id="system-overview-container"></div>
+        </div>
+
+        <div class="section">
+            <h2>控制器与交换机连接状态</h2>
+            <div class="controller-grid" id="switches-status-container"></div>
         </div>
 
         <div class="section">
@@ -64,8 +113,18 @@
         </div>
 
         <div class="section">
-            <h2>数据传输日志</h2>
-            <div class="logs-container" id="data-logs-container"></div>
+            <h2>网关数据传输日志</h2>
+            <div class="logs-container" id="gateway-logs-container"></div>
+        </div>
+
+        <div class="section">
+            <h2>交换机s1数据传输日志</h2>
+            <div class="logs-container" id="s1-logs-container"></div>
+        </div>
+
+        <div class="section">
+            <h2>交换机s2数据传输日志</h2>
+            <div class="logs-container" id="s2-logs-container"></div>
         </div>
     </div>
 
@@ -87,11 +146,15 @@
                     return res.json();
                 })
                 .then(data => {
-                    updateConnectivity(data.connectivity);
+                    updateTopStatus(data);
+                    updateSystemOverview(data);
+                    updateSwitchesStatus(data.switches_status);
                     updateBleNodes(data.ble_mesh.nodes);
                     updateFlows('s1-flows-container', data.s1_flows);
                     updateFlows('s2-flows-container', data.s2_flows);
-                    updateLogs(data.ble_mesh.logs);
+                    updateLogs('gateway-logs-container', data.gateway_logs);
+                    updateLogs('s1-logs-container', data.s1_logs);
+                    updateLogs('s2-logs-container', data.s2_logs);
                     updateRefreshIndicator();
                 })
                 .catch(err => {
@@ -100,14 +163,74 @@
                 });
         }
 
-        function updateConnectivity(connectivity) {
-            const container = document.getElementById('connectivity-container');
-            container.innerHTML = Object.entries(connectivity).map(([key, value]) => `
-                <div class="status-card">
-                    <div class="label">${key}</div>
-                    <div class="value ${value.includes('✅') ? 'online' : 'offline'}">${value}</div>
+        function updateTopStatus(data) {
+            // 更新交换机在线数量
+            const switchesOnlineCount = Object.values(data.switches_status).filter(status => status.connected).length;
+            document.getElementById('switches-online-count').textContent = switchesOnlineCount;
+            
+            // 更新BLE节点在线数量
+            const bleNodesOnlineCount = data.ble_mesh.nodes.filter(node => node.status === '在线').length;
+            document.getElementById('ble-nodes-online-count').textContent = bleNodesOnlineCount;
+            
+            // 更新系统状态
+            const systemStatus = document.getElementById('system-status');
+            systemStatus.textContent = '正常';
+            systemStatus.className = 'value positive';
+            
+            // 更新上次更新时间
+            const now = new Date().toLocaleString();
+            document.getElementById('last-update-time').textContent = now;
+        }
+
+        function updateSystemOverview(data) {
+            const container = document.getElementById('system-overview-container');
+            const switchesOnlineCount = Object.values(data.switches_status).filter(status => status.connected).length;
+            const bleNodesOnlineCount = data.ble_mesh.nodes.filter(node => node.status === '在线').length;
+            const totalFlows = (data.s1_flows?.length || 0) + (data.s2_flows?.length || 0);
+            const totalLogs = (data.gateway_logs?.length || 0) + (data.s1_logs?.length || 0) + (data.s2_logs?.length || 0);
+            
+            container.innerHTML = `
+                <div class="overview-card">
+                    <div class="label">交换机状态</div>
+                    <div class="value" style="font-size: 24px; margin: 10px 0;">${switchesOnlineCount}/2 在线</div>
+                    <div class="label">运行中: ${switchesOnlineCount}, 离线: ${2 - switchesOnlineCount}</div>
                 </div>
-            `).join('');
+                <div class="overview-card">
+                    <div class="label">BLE节点状态</div>
+                    <div class="value" style="font-size: 24px; margin: 10px 0;">${bleNodesOnlineCount}/${data.ble_mesh.nodes.length} 在线</div>
+                    <div class="label">运行中: ${bleNodesOnlineCount}, 离线: ${data.ble_mesh.nodes.length - bleNodesOnlineCount}</div>
+                </div>
+                <div class="overview-card">
+                    <div class="label">流表数量</div>
+                    <div class="value" style="font-size: 24px; margin: 10px 0;">${totalFlows}</div>
+                    <div class="label">s1: ${data.s1_flows?.length || 0}, s2: ${data.s2_flows?.length || 0}</div>
+                </div>
+                <div class="overview-card">
+                    <div class="label">日志记录</div>
+                    <div class="value" style="font-size: 24px; margin: 10px 0;">${totalLogs}</div>
+                    <div class="label">网关:${data.gateway_logs?.length || 0} s1:${data.s1_logs?.length || 0} s2:${data.s2_logs?.length || 0}</div>
+                </div>
+            `;
+        }
+
+        function updateSwitchesStatus(switchesStatus) {
+            const container = document.getElementById('switches-status-container');
+            container.innerHTML = Object.entries(switchesStatus).map(([switchName, status]) => {
+                const connectedClass = status.connected ? 'connected' : 'disconnected';
+                const connectedText = status.connected ? '已连接' : '未连接';
+                const dpidText = status.dpid ? `DPID: ${status.dpid}` : '无DPID';
+                return `
+                <div class="controller-card">
+                    <div class="label">交换机 ${switchName}</div>
+                    <div class="value">
+                        <span class="connection-status ${connectedClass}">${connectedText}</span>
+                    </div>
+                    <div class="label" style="margin-top: 10px;">${dpidText}</div>
+                    <div class="label">
+                        最后活动: ${status.last_seen ? new Date(status.last_seen * 1000).toLocaleString() : '从未'}
+                    </div>
+                </div>
+            `;}).join('');
         }
 
         function updateBleNodes(nodes) {
@@ -142,9 +265,9 @@
                 : '<div class="flow-item" style="text-align: center; color: #718096;">暂无流表数据</div>';
         }
 
-        function updateLogs(logs) {
-            const container = document.getElementById('data-logs-container');
-            container.innerHTML = logs.length > 0 
+        function updateLogs(containerId, logs) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = logs && logs.length > 0 
                 ? logs.map(log => `<div class="log-item">${log}</div>`).join('')
                 : '<div class="log-item" style="text-align: center; color: #718096;">暂无数据传输记录</div>';
         }
