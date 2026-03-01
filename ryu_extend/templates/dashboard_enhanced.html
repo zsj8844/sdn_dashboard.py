@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SDN IoT 网络监控仪表盘（增强版）</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1600px; margin: 0 auto; }
+        h1 { text-align: center; color: #fff; margin-bottom: 20px; font-size: 2.5rem; }
+        
+        .tab-nav { display: flex; gap: 10px; margin-bottom: 20px; background: rgba(255,255,255,0.1); border-radius: 10px; padding: 8px; }
+        .tab-btn { flex: 1; padding: 12px 20px; background: transparent; border: none; color: #a0aec0; font-size: 15px; font-weight: 600; border-radius: 8px; cursor: pointer; transition: all 0.3s; }
+        .tab-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+        .tab-btn.active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        .top-status-bar { display: flex; justify-content: space-around; background: rgba(255,255,255,0.1); border-radius: 12px; padding: 20px; margin-bottom: 30px; }
+        .status-item { text-align: center; }
+        .status-item .title { color: #a0aec0; font-size: 14px; margin-bottom: 8px; }
+        .status-item .value { font-size: 24px; font-weight: 700; color: #fff; }
+        
+        .section { background: rgba(255,255,255,0.08); border-radius: 12px; padding: 25px; margin-bottom: 25px; }
+        .section h2 { color: #fff; margin-bottom: 20px; font-size: 1.5rem; }
+        
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+        .card { padding: 20px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); }
+        .card .label { color: #a0aec0; font-size: 14px; margin-bottom: 8px; }
+        .card .value { color: #fff; font-size: 20px; font-weight: 600; }
+        
+        .topology-container { width: 100%; height: 500px; background: rgba(0,0,0,0.3); border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); }
+        
+        .flows-container, .logs-container, .stats-container { max-height: 400px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 15px; background: rgba(0,0,0,0.2); }
+        .flow-item, .log-item, .stat-item { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 13px; color: #e2e8f0; font-family: 'Courier New', monospace; }
+        
+        .form-group { display: flex; gap: 15px; margin-bottom: 15px; flex-wrap: wrap; }
+        .form-input { flex: 1; min-width: 200px; padding: 10px 15px; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; background: rgba(0,0,0,0.3); color: #fff; font-size: 14px; }
+        .btn { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+        .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .btn-danger { background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%); color: white; }
+        
+        .progress-bar { width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; }
+        .progress-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+        .battery-high { background: linear-gradient(to right, #48bb78, #38a169); }
+        .battery-medium { background: linear-gradient(to right, #ecc94b, #d69e2e); }
+        .battery-low { background: linear-gradient(to right, #e53e3e, #c53030); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SDN IoT 网络监控仪表盘（增强版）</h1>
+        
+        <div class="tab-nav">
+            <button class="tab-btn active" onclick="switchTab('overview', this)">系统概览</button>
+            <button class="tab-btn" onclick="switchTab('topology', this)">拓扑可视化</button>
+            <button class="tab-btn" onclick="switchTab('flows', this)">流表管理</button>
+            <button class="tab-btn" onclick="switchTab('stats', this)">统计数据</button>
+            <button class="tab-btn" onclick="switchTab('logs', this)">日志监控</button>
+        </div>
+        
+        <div class="top-status-bar">
+            <div class="status-item">
+                <div class="title">交换机在线</div>
+                <div class="value" id="switches-online-count">0</div>
+            </div>
+            <div class="status-item">
+                <div class="title">BLE节点在线</div>
+                <div class="value" id="ble-nodes-online-count">0</div>
+            </div>
+            <div class="status-item">
+                <div class="title">拓扑链接</div>
+                <div class="value" id="links-count">0</div>
+            </div>
+            <div class="status-item">
+                <div class="title">系统状态</div>
+                <div class="value" style="color: #48bb78;" id="system-status">正常</div>
+            </div>
+            <div class="status-item">
+                <div class="title">上次更新</div>
+                <div class="value" id="last-update-time">--</div>
+            </div>
+        </div>
+        
+        <div id="overview" class="tab-content active">
+            <div class="section">
+                <h2>系统概览</h2>
+                <div class="grid" id="system-overview-container"></div>
+            </div>
+            <div class="section">
+                <h2>控制器与交换机连接状态</h2>
+                <div class="grid" id="switches-status-container"></div>
+            </div>
+            <div class="section">
+                <h2>BLE节点状态</h2>
+                <div class="grid" id="ble-nodes-container"></div>
+            </div>
+        </div>
+        
+        <div id="topology" class="tab-content">
+            <div class="section">
+                <h2>网络拓扑</h2>
+                <div class="topology-container" id="topology-svg"></div>
+            </div>
+            <div class="section">
+                <h2>拓扑信息</h2>
+                <div class="grid" id="topology-info-container"></div>
+            </div>
+        </div>
+        
+        <div id="flows" class="tab-content">
+            <div class="section">
+                <h2>添加流表</h2>
+                <div class="form-group">
+                    <select class="form-input" id="flow-switch">
+                        <option value="1">交换机 s1</option>
+                        <option value="2">交换机 s2</option>
+                    </select>
+                    <input type="number" class="form-input" id="flow-table" placeholder="流表ID (默认0)" value="0">
+                    <input type="number" class="form-input" id="flow-priority" placeholder="优先级 (默认10)" value="10">
+                </div>
+                <div class="form-group">
+                    <input type="text" class="form-input" id="flow-match" placeholder="匹配条件 (如: eth_type=0x0800,ipv4_dst=192.168.1.20)">
+                    <input type="text" class="form-input" id="flow-actions" placeholder="动作 (如: output:2)" value="output:2">
+                </div>
+                <div class="form-group">
+                    <button class="btn btn-primary" onclick="addFlow()">添加流表</button>
+                    <button class="btn btn-danger" onclick="clearFlows()">清空流表</button>
+                </div>
+            </div>
+            <div class="section">
+                <h2>交换机流表（s1）</h2>
+                <div class="flows-container" id="s1-flows-container"></div>
+            </div>
+            <div class="section">
+                <h2>交换机流表（s2）</h2>
+                <div class="flows-container" id="s2-flows-container"></div>
+            </div>
+        </div>
+        
+        <div id="stats" class="tab-content">
+            <div class="section">
+                <h2>端口统计</h2>
+                <div class="stats-container" id="port-stats-container"></div>
+            </div>
+            <div class="section">
+                <h2>流表统计</h2>
+                <div class="stats-container" id="flow-stats-container"></div>
+            </div>
+            <div class="section">
+                <h2>流表表统计</h2>
+                <div class="stats-container" id="table-stats-container"></div>
+            </div>
+        </div>
+        
+        <div id="logs" class="tab-content">
+            <div class="section">
+                <h2>网关数据传输日志</h2>
+                <div class="logs-container" id="gateway-logs-container"></div>
+            </div>
+            <div class="section">
+                <h2>交换机s1数据传输日志</h2>
+                <div class="logs-container" id="s1-logs-container"></div>
+            </div>
+            <div class="section">
+                <h2>交换机s2数据传输日志</h2>
+                <div class="logs-container" id="s2-logs-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentData = null;
+        let currentTopology = { switches: [], links: [], hosts: [] };
+        let currentStats = { port_stats: {}, flow_stats: {}, table_stats: {} };
+        
+        window.onload = function() {
+            fetchData();
+            fetchTopology();
+            fetchStats();
+            setInterval(() => {
+                fetchData();
+                fetchTopology();
+                fetchStats();
+            }, 3000);
+        };
+        
+        function switchTab(tabId, btn) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            btn.classList.add('active');
+            if (tabId === 'topology') {
+                setTimeout(renderTopology, 100);
+            }
+        }
+        
+        function fetchData() {
+            fetch('/api/data')
+                .then(res => res.json())
+                .then(data => {
+                    currentData = data;
+                    updateTopStatus(data);
+                    updateSystemOverview(data);
+                    updateSwitchesStatus(data.switches_status);
+                    updateBleNodes(data.ble_mesh.nodes);
+                    updateFlows('s1-flows-container', data.s1_flows);
+                    updateFlows('s2-flows-container', data.s2_flows);
+                    updateLogs('gateway-logs-container', data.gateway_logs);
+                    updateLogs('s1-logs-container', data.s1_logs);
+                    updateLogs('s2-logs-container', data.s2_logs);
+                    document.getElementById('last-update-time').textContent = new Date().toLocaleString();
+                })
+                .catch(err => console.error('获取数据失败:', err));
+        }
+        
+        function fetchTopology() {
+            fetch('/api/topology')
+                .then(res => res.json())
+                .then(data => {
+                    currentTopology = data;
+                    updateTopologyInfo(data);
+                    document.getElementById('links-count').textContent = data.links?.length || 0;
+                })
+                .catch(err => console.error('获取拓扑失败:', err));
+        }
+        
+        function fetchStats() {
+            fetch('/api/stats')
+                .then(res => res.json())
+                .then(data => {
+                    currentStats = data;
+                    updateStats(data);
+                })
+                .catch(err => console.error('获取统计失败:', err));
+        }
+        
+        function updateTopStatus(data) {
+            const switchesOnlineCount = Object.values(data.switches_status).filter(status => status.connected).length;
+            document.getElementById('switches-online-count').textContent = switchesOnlineCount;
+            const bleNodesOnlineCount = data.ble_mesh.nodes.filter(node => node.status === '在线').length;
+            document.getElementById('ble-nodes-online-count').textContent = bleNodesOnlineCount;
+        }
+        
+        function updateSystemOverview(data) {
+            const container = document.getElementById('system-overview-container');
+            const switchesOnlineCount = Object.values(data.switches_status).filter(status => status.connected).length;
+            const bleNodesOnlineCount = data.ble_mesh.nodes.filter(node => node.status === '在线').length;
+            const totalFlows = (data.s1_flows?.length || 0) + (data.s2_flows?.length || 0);
+            const totalLogs = (data.gateway_logs?.length || 0) + (data.s1_logs?.length || 0) + (data.s2_logs?.length || 0);
+            
+            container.innerHTML = `
+                <div class="card">
+                    <div class="label">交换机状态</div>
+                    <div class="value" style="font-size: 24px; margin: 10px 0;">${switchesOnlineCount}/2 在线</div>
+                    <div class="label">运行中: ${switchesOnlineCount}, 离线: ${2 - switchesOnlineCount}</div>
+                </div>
+                <div class="card">
+                    <div class="label">BLE节点状态</div>
+                    <div class="value" style="font-size: 24px; margin: 10px 0;">${bleNodesOnlineCount}/${data.ble_mesh.nodes.length} 在线</div>
+                    <div class="label">运行中: ${bleNodesOnlineCount}, 离线: ${data.ble_mesh.nodes.length - bleNodesOnlineCount}</div>
+                </div>
+                <div class="card">
+                    <div class="label">流表数量</div>
+                    <div class="value" style="font-size: 24px; margin: 10px 0;">${totalFlows}</div>
+                    <div class="label">s1: ${data.s1_flows?.length || 0}, s2: ${data.s2_flows?.length || 0}</div>
+                </div>
+                <div class="card">
+                    <div class="label">日志记录</div>
+                    <div class="value" style="font-size: 24px; margin: 10px 0;">${totalLogs}</div>
+                    <div class="label">网关:${data.gateway_logs?.length || 0} s1:${data.s1_logs?.length || 0} s2:${data.s2_logs?.length || 0}</div>
+                </div>
+            `;
+        }
+        
+        function updateSwitchesStatus(switchesStatus) {
+            const container = document.getElementById('switches-status-container');
+            container.innerHTML = Object.entries(switchesStatus).map(([switchName, status]) => {
+                const connectedText = status.connected ? '已连接' : '未连接';
+                const dpidText = status.dpid ? `DPID: ${status.dpid}` : '无DPID';
+                return `
+                <div class="card">
+                    <div class="label">交换机 ${switchName}</div>
+                    <div class="value" style="color: ${status.connected ? '#48bb78' : '#e53e3e'}">${connectedText}</div>
+                    <div class="label" style="margin-top: 10px;">${dpidText}</div>
+                    <div class="label">
+                        最后活动: ${status.last_seen ? new Date(status.last_seen * 1000).toLocaleString() : '从未'}
+                    </div>
+                </div>
+            `;}).join('');
+        }
+        
+        function updateBleNodes(nodes) {
+            const container = document.getElementById('ble-nodes-container');
+            container.innerHTML = nodes.map(node => {
+                const batteryClass = node.battery > 70 ? 'battery-high' : node.battery > 30 ? 'battery-medium' : 'battery-low';
+                return `
+                <div class="card">
+                    <div class="value" style="font-size: 16px;">${node.id}</div>
+                    <div class="label" style="margin: 8px 0;">${node.type}</div>
+                    <div class="label">
+                        状态: <span style="color: ${node.status === '在线' ? '#48bb78' : '#e53e3e'}; font-weight: 600;">${node.status}</span>
+                    </div>
+                    <div class="label" style="margin-top: 8px;">RSSI: ${node.rssi}dBm</div>
+                    <div style="margin-top: 10px;">
+                        <div class="label">电池: ${node.battery}%</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill ${batteryClass}" style="width: ${node.battery}%"></div>
+                        </div>
+                    </div>
+                </div>
+            `;}).join('');
+        }
+        
+        function updateTopologyInfo(topology) {
+            const container = document.getElementById('topology-info-container');
+            container.innerHTML = `
+                <div class="card">
+                    <div class="label">交换机数量</div>
+                    <div class="value">${topology.switches?.length || 0}</div>
+                </div>
+                <div class="card">
+                    <div class="label">链接数量</div>
+                    <div class="value">${topology.links?.length || 0}</div>
+                </div>
+                <div class="card">
+                    <div class="label">主机数量</div>
+                    <div class="value">${topology.hosts?.length || 0}</div>
+                </div>
+            `;
+        }
+        
+        function renderTopology() {
+            const container = document.getElementById('topology-svg');
+            container.innerHTML = '';
+            
+            const width = container.clientWidth;
+            const height = 500;
+            
+            const svg = d3.select('#topology-svg')
+                .append('svg')
+                .attr('width', width)
+                .attr('height', height);
+            
+            const nodes = [
+                { id: 's1', label: 's1', type: 'switch', x: width / 3, y: height / 2 },
+                { id: 's2', label: 's2', type: 'switch', x: width * 2 / 3, y: height / 2 },
+                { id: 'h1', label: 'h1', type: 'host', x: width / 4, y: height - 100 },
+                { id: 'h2', label: 'h2', type: 'host', x: width * 3 / 4, y: height - 100 },
+                { id: 'iot3', label: 'iot3\n(网关)', type: 'host', x: width / 2, y: 120 },
+                { id: 'iot1', label: 'iot1', type: 'host', x: width / 4, y: 80 },
+                { id: 'iot2', label: 'iot2', type: 'host', x: width / 3, y: 60 },
+                { id: 'iot4', label: 'iot4', type: 'host', x: width * 2 / 3, y: 80 }
+            ];
+            
+            const links = [
+                { source: 's1', target: 's2' },
+                { source: 's2', target: 'h1' },
+                { source: 's2', target: 'h2' },
+                { source: 's1', target: 'iot3' },
+                { source: 'iot3', target: 'iot1' },
+                { source: 'iot3', target: 'iot2' },
+                { source: 'iot3', target: 'iot4' }
+            ];
+            
+            svg.selectAll('.link')
+                .data(links)
+                .enter()
+                .append('line')
+                .attr('class', 'link')
+                .attr('x1', d => nodes.find(n => n.id === d.source).x)
+                .attr('y1', d => nodes.find(n => n.id === d.source).y)
+                .attr('x2', d => nodes.find(n => n.id === d.target).x)
+                .attr('y2', d => nodes.find(n => n.id === d.target).y)
+                .attr('stroke', '#667eea')
+                .attr('stroke-width', 2);
+            
+            const node = svg.selectAll('.node')
+                .data(nodes)
+                .enter()
+                .append('g')
+                .attr('class', 'node')
+                .attr('transform', d => `translate(${d.x}, ${d.y})`);
+            
+            node.append('circle')
+                .attr('r', 25)
+                .attr('fill', d => d.type === 'switch' ? '#667eea' : '#48bb78')
+                .attr('stroke', '#fff')
+                .attr('stroke-width', 2);
+            
+            node.append('text')
+                .attr('text-anchor', 'middle')
+                .attr('dy', 5)
+                .attr('fill', '#fff')
+                .attr('font-weight', 'bold')
+                .text(d => d.label);
+        }
+        
+        function updateStats(stats) {
+            const portContainer = document.getElementById('port-stats-container');
+            const flowContainer = document.getElementById('flow-stats-container');
+            const tableContainer = document.getElementById('table-stats-container');
+            
+            let portHtml = '';
+            Object.entries(stats.port_stats || {}).forEach(([dpid, ports]) => {
+                portHtml += `<div class="stat-item" style="font-weight: 600; color: #667eea;">交换机 ${dpid}:</div>`;
+                ports.forEach(port => {
+                    portHtml += `<div class="stat-item">端口${port.port_no}: RX=${port.rx_packets} TX=${port.tx_packets}</div>`;
+                });
+            });
+            portContainer.innerHTML = portHtml || '<div class="stat-item" style="text-align: center; color: #718096;">暂无端口统计数据</div>';
+            
+            let flowHtml = '';
+            Object.entries(stats.flow_stats || {}).forEach(([dpid, flows]) => {
+                flowHtml += `<div class="stat-item" style="font-weight: 600; color: #667eea;">交换机 ${dpid}:</div>`;
+                flows.forEach((flow, i) => {
+                    flowHtml += `<div class="stat-item">流表${i+1}: 表${flow.table_id}, 包数=${flow.packet_count}</div>`;
+                });
+            });
+            flowContainer.innerHTML = flowHtml || '<div class="stat-item" style="text-align: center; color: #718096;">暂无流表统计数据</div>';
+            
+            let tableHtml = '';
+            Object.entries(stats.table_stats || {}).forEach(([dpid, tables]) => {
+                tableHtml += `<div class="stat-item" style="font-weight: 600; color: #667eea;">交换机 ${dpid}:</div>`;
+                Object.entries(tables).forEach(([tableId, table]) => {
+                    tableHtml += `<div class="stat-item">表${tableId}: 活跃流=${table.active_count}, 查询=${table.lookup_count}</div>`;
+                });
+            });
+            tableContainer.innerHTML = tableHtml || '<div class="stat-item" style="text-align: center; color: #718096;">暂无表统计数据</div>';
+        }
+        
+        function updateFlows(containerId, flows) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = flows && flows.length > 0 
+                ? flows.map(flow => `<div class="flow-item">${flow}</div>`).join('')
+                : '<div class="flow-item" style="text-align: center; color: #718096;">暂无流表数据</div>';
+        }
+        
+        function updateLogs(containerId, logs) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = logs && logs.length > 0 
+                ? logs.map(log => `<div class="log-item">${log}</div>`).join('')
+                : '<div class="log-item" style="text-align: center; color: #718096;">暂无数据传输记录</div>';
+        }
+        
+        function addFlow() {
+            const dpid = document.getElementById('flow-switch').value;
+            const tableId = document.getElementById('flow-table').value;
+            const priority = document.getElementById('flow-priority').value;
+            const match = document.getElementById('flow-match').value;
+            const actions = document.getElementById('flow-actions').value;
+            
+            fetch('/api/flows', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dpid, table_id: tableId, priority, match, actions })
+            })
+            .then(res => res.json())
+            .then(data => {
+                alert(data.message || '流表添加成功');
+                fetchData();
+            })
+            .catch(err => alert('添加失败: ' + err));
+        }
+        
+        function clearFlows() {
+            if (!confirm('确定要清空流表吗？')) return;
+            
+            const dpid = document.getElementById('flow-switch').value;
+            const tableId = document.getElementById('flow-table').value;
+            
+            fetch('/api/flows', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dpid, table_id: tableId || null })
+            })
+            .then(res => res.json())
+            .then(data => {
+                alert(data.message || '流表清空成功');
+                fetchData();
+            })
+            .catch(err => alert('清空失败: ' + err));
+        }
+    </script>
+</body>
+</html>
