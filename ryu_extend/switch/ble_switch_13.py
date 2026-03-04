@@ -9,7 +9,7 @@ from ryu.lib import hub
 import time
 import json
 from collections import defaultdict
-
+#用于匹配和处理1001和1002ble数据包的常量
 BLE_ADDR_MATCH = 1001
 BLE_OUTPUT_ACTION = 1002
 MY_EXPERIMENTER_ID = 0xdeadbeef
@@ -17,14 +17,14 @@ MY_EXPERIMENTER_ID = 0xdeadbeef
 EXTENSIONS_AVAILABLE = False
 
 try:
-    from extensions.manager import IoTExtensionManager, create_iot_extension
-    from extensions.app_deployment import AppDeploymentManager
-    from extensions.role_switch import DeviceRoleManager, DeviceMode, DeviceCapabilities
-    EXTENSIONS_AVAILABLE = True
+    from extensions.manager import IoTExtensionManager, create_iot_extension #iot扩展管理器
+    from extensions.app_deployment import AppDeploymentManager #应用部署管理器
+    from extensions.role_switch import DeviceRoleManager, DeviceMode, DeviceCapabilities #设备角色管理器
+    EXTENSIONS_AVAILABLE = True #尝试导入扩展模块
 except ImportError:
     EXTENSIONS_AVAILABLE = False
 
-
+#继承原来的simple_switch_13.SimpleSwitch13ryu控制器
 class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
@@ -41,19 +41,25 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
         else:
             self.logger.warning("OpenFlow扩展字段功能不可用")
 
+        # self.topology 是该实例的一个属性，用于存储网络拓扑信息，包括：
+        # 'switches': 存储网络中所有交换机的信息
+        # 'links': 存储交换机之间的连接关系
+        # 'hosts': 存储网络中的主机设备信息
         self.topology = {
             'switches': {},
             'links': [],
             'hosts': {}
         }
-
+        # defaultdict(list) - 默认值为列表的字典，当访问不存在的键时会自动创建一个空列表
         self.port_stats = defaultdict(list)
         self.flow_stats = defaultdict(list)
         self.table_stats = defaultdict(dict)
 
+        #发送lldp协议信息 主动向邻居广播自己的身份和连接信息 拓扑管理
         self.lldp_thread = hub.spawn(self._lldp_sender)
         self.lldp_interval = 5
 
+        # 收集网络设备的端口、刘表统计信息
         self.stats_thread = hub.spawn(self._stats_collector)
         self.stats_interval = 10
 
