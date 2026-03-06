@@ -63,10 +63,12 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
         self.stats_thread = hub.spawn(self._stats_collector)
         self.stats_interval = 10
 
+        # 通过字典，初始化刘表的相关数据结构
         self.flow_tables = defaultdict(dict)
 
         self.web_panel_url = "http://localhost:5000"
 
+        # 初始化应用下发和角色切换功能
         if self.extension_enabled:
             self.app_deployment_manager = AppDeploymentManager()
             self.device_role_manager = DeviceRoleManager()
@@ -74,6 +76,12 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
 
         self.logger.info("BLE Mesh Switch 13 初始化完成（增强版）")
 
+    # 监听交换机连接事件：当任何支持OpenFlow 1.3协议的交换机连接到控制器时，会发送EventOFPSwitchFeatures事件
+    # 指定处理时机：CONFIG_DISPATCHER表示在交换机配置阶段处理此事件，即在交换机刚连接时执行
+    # 触发后续动作：这个装饰器将方法switch_features_handler注册为事件处理函数，当交换机连接时会自动调用该方法，执行以下操作：
+    # 记录交换机信息到拓扑结构中
+    # 安装默认流表规则（转发到控制器）
+    # 向Web界面报告拓扑变化
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
         super().switch_features_handler(ev)
@@ -85,6 +93,10 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
         self.topology['switches'][dpid] = datapath
         self.logger.info(f"交换机 {dpid} 已连接")
 
+        #空匹配对象ofpmatch
+        #OFPActionOutput - 输出动作
+        # OFPP_CONTROLLER - 目标端口是控制器
+        # OFPCML_NO_BUFFER - 不缓存数据包，直接发送完整数据
         match = parser.OFPMatch()
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER, ofproto.OFPCML_NO_BUFFER)]
         self.add_flow(datapath, 0, match, actions)
@@ -92,6 +104,8 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
 
         self._report_topology_to_web()
 
+    # 增加流表
+    # OFPInstructionActions执行函数，ofproto.OFPIT_APPLY_ACTIONS立即执行, actions动作
     def add_flow(self, datapath, priority, match, actions, idle_timeout=0, hard_timeout=0, table_id=0):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
@@ -102,6 +116,7 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
         )
         datapath.send_msg(mod)
 
+        # 本地记录
         dpid = datapath.id
         if table_id not in self.flow_tables[dpid]:
             self.flow_tables[dpid][table_id] = []
@@ -116,6 +131,7 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
 
         self.logger.info(f"流表下发成功 - 表ID:{table_id}, 优先级:{priority}, 超时:{idle_timeout}s, 端口:{actions[0].port if actions else '无'}")
 
+    #推送到Web面板，交换机日志
     def push_switch_log(self, dpid, message):
         try:
             log_endpoint = "s1" if dpid == 1 else "s2"
@@ -124,6 +140,8 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
         except Exception as e:
             self.logger.debug(f"推送{log_endpoint}日志失败: {e}")
 
+    #ofp_event.EventOFPPacketIn数据包到达处理事件
+    #主分发器
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
         try:
@@ -138,7 +156,7 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
                 return
             pkt = packet.Packet(msg.data)
             self.logger.info(f"交换机{dpid}收到数据包: 端口{in_port} ({len(msg.data)}bytes)")
-            eth_pkt = pkt.get_protocol(ethernet.ethernet)
+            eth_pkt = pkt.get_protocol(ethernet.ethernet)#原始数据转换位数据包对象
             if not eth_pkt:
                 self.logger.debug("非以太网包，泛洪转发")
                 self._send_packet_out(datapath, in_port, msg.buffer_id, msg.data, ofproto.OFPP_FLOOD)
@@ -153,6 +171,7 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
             self.mac_to_port[dpid][eth_pkt.src] = in_port
             self.logger.debug(f"交换机{dpid} MAC学习: {eth_pkt.src} -> 端口{in_port}")
 
+            # 将mac地址和端口关系上报给Web面板
             ip_pkt = pkt.get_protocol(ipv4.ipv4)
             udp_pkt = pkt.get_protocol(udp.udp)
             if ip_pkt:
@@ -170,8 +189,8 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
                     }
                     self._report_topology_to_web()
 
+            # 解析是为ble数据包
             is_ble_packet = (ip_pkt and udp_pkt and udp_pkt.dst_port == 5005)
-
             if is_ble_packet:
                 try:
                     ip_header_len = (ip_pkt.version & 0xF) * 4
@@ -208,6 +227,7 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
             self.logger.info(log_msg_prefix)
             self.push_switch_log(dpid, log_msg_prefix)
 
+            # 静态路由配置
             if dst in self.mac_to_port.get(dpid, {}):
                 out_port = self.mac_to_port[dpid][dst]
                 self.logger.info(f"交换机{dpid} 找到目标{dst}在端口{out_port}")
@@ -224,6 +244,7 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
                         log_msg = f"s1转发数据到iot3 (端口1) - 源IP:{ip_pkt.src} -> 目标IP:{ip_pkt.dst}"
                         self.logger.info(log_msg)
                         self.push_switch_log(1, log_msg)
+
                 elif dpid == 2:
                     if ip_pkt.dst == '192.168.1.20':
                         out_port = 2
@@ -249,6 +270,7 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
 
             self._send_packet_out(datapath, in_port, msg.buffer_id, msg.data, out_port)
 
+            #流表安装逻辑
             if out_port != ofproto.OFPP_FLOOD:
                 if ip_pkt:
                     match = parser.OFPMatch(eth_type=0x0800, ipv4_dst=ip_pkt.dst)
@@ -268,6 +290,7 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
             import traceback
             self.logger.error(traceback.format_exc())
 
+    # 送包
     def _send_packet_out(self, datapath, in_port, buffer_id, data, out_port):
         try:
             ofproto = datapath.ofproto
@@ -282,6 +305,7 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
         except Exception as e:
             self.logger.error(f"数据包转发失败: {e}")
 
+    # 测试扩展字段功能
     def test_extension_functionality(self):
         try:
             ext_mgr = create_iot_extension(
@@ -301,6 +325,7 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
             self.logger.error(f"扩展字段功能测试失败: {e}")
             self.extension_enabled = False
 
+    # 处理iot扩展字段
     def process_iot_extension(self, ble_type, ble_value):
         try:
             sensor_mapping = {
@@ -314,6 +339,7 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
 
             sensor_type = sensor_mapping.get(ble_type.lower(), 'temp')
 
+            # 优先级
             try:
                 value_float = float(ble_value)
                 if value_float > 80:
@@ -342,6 +368,7 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
         except Exception as e:
             self.logger.warning(f"处理IoT扩展字段时出错: {e}")
 
+    # 当交换机返回端口统计信息，收集展示网络端口流量统计信息
     @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER)
     def port_stats_reply_handler(self, ev):
         datapath = ev.msg.datapath
@@ -369,6 +396,7 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
         self.logger.debug(f"交换机 {dpid} 端口统计已更新: {len(stats)} 个端口")
         self._report_stats_to_web('port_stats', dpid, stats)
 
+    # 当交换机返回流表统计信息，收集展示流表统计信息
     @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
     def flow_stats_reply_handler(self, ev):
         datapath = ev.msg.datapath
@@ -396,6 +424,7 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
         self.logger.debug(f"交换机 {dpid} 流表统计已更新: {len(flows)} 条流表")
         self._report_stats_to_web('flow_stats', dpid, flows)
 
+    # 解析流表数据 - 提取每个流表的活动流数量、查找次数、匹配次数
     @set_ev_cls(ofp_event.EventOFPTableStatsReply, MAIN_DISPATCHER)
     def table_stats_reply_handler(self, ev):
         datapath = ev.msg.datapath
@@ -416,6 +445,10 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
         self.logger.debug(f"交换机 {dpid} 流表表统计已更新: {len(tables)} 个表")
         self._report_stats_to_web('table_stats', dpid, tables)
 
+    # request_port_stats - 向交换机发送端口统计请求，获取端口流量信息
+    # request_flow_stats - 向交换机发送流表统计请求，获取流表使用情况
+    # request_table_stats - 向交换机发送表统计请求，获取表性能指标
+    # _stats_collector 是定时收集线程，周期性调用上述三个请求方法。
     def request_port_stats(self, datapath):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
@@ -453,6 +486,7 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
                 except Exception as e:
                     self.logger.warning(f"收集交换机 {dpid} 统计失败: {e}")
 
+    # 将匹配条件转换为字典
     def _match_to_dict(self, match):
         result = {}
         for key, value in match.items():
@@ -462,6 +496,7 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
                 result[key] = value
         return result
 
+    # 将指令对象列表转换为字典列表格式，便于数据传输
     def _instructions_to_list(self, instructions):
         result = []
         for inst in instructions:
@@ -471,6 +506,7 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
             result.append(inst_dict)
         return result
 
+    # 将统计信息通过HTTP POST发送到Web界面
     def _report_stats_to_web(self, stats_type, dpid, data):
         try:
             url = f"{self.web_panel_url}/api/stats"
@@ -484,6 +520,7 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
         except Exception as e:
             self.logger.debug(f"上报统计数据失败: {e}")
 
+    # 实时监控和响应网络端口状态变化
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER)
     def port_status_handler(self, ev):
         msg = ev.msg
@@ -501,6 +538,7 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
         self.logger.info(f"交换机 {dpid} 端口 {port_no} {reason_str}")
         self._report_topology_to_web()
 
+    # 发送lldp消息
     def _lldp_sender(self):
         while True:
             hub.sleep(self.lldp_interval)
@@ -512,6 +550,14 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
                 except Exception as e:
                     self.logger.warning(f"发送LLDP到交换机 {dpid} 失败: {e}")
 
+    # 网络中其他设备广播本交换机的端口信息，用于拓扑发现
+    # 向网络中其他设备发送LLDP消息
+    # 构造LLDP包 - 创建包含以下信息的LLDP数据包：
+    # 设备标识（chassis_id）- 使用端口硬件地址
+    # 端口标识（port_id）- 使用端口号
+    # 系统名称（system_name）- 格式为'switch-{dpid}'
+    # 生存时间（ttl）- 设置为10秒
+    # 发送LLDP - 通过 _send_lldp_packet 方法发送到对应端口
     @set_ev_cls(ofp_event.EventOFPPortDescStatsReply, MAIN_DISPATCHER)
     def port_desc_stats_reply_handler(self, ev):
         datapath = ev.msg.datapath
@@ -548,6 +594,7 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
 
             self._send_lldp_packet(datapath, port_no, pkt.data)
 
+    # 发送LLDP报文
     def _send_lldp_packet(self, datapath, port_no, data):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
@@ -562,6 +609,7 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
         )
         datapath.send_msg(out)
 
+    # 解析lldp的包
     def _handle_lldp_packet(self, dpid, in_port, pkt):
         lldp_pkt = pkt.get_protocol(lldp.lldp)
         if not lldp_pkt:
@@ -608,6 +656,7 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
             except Exception as e:
                 self.logger.warning(f"解析LLDP数据包失败: {e}")
 
+    # 上报拓扑状态
     def _report_topology_to_web(self):
         try:
             url = f"{self.web_panel_url}/api/topology"
@@ -621,6 +670,7 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
         except Exception as e:
             self.logger.debug(f"上报拓扑信息失败: {e}")
 
+    # 流表删除
     def delete_flow(self, datapath, match=None, priority=None, table_id=0):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
@@ -640,6 +690,7 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
         datapath.send_msg(mod)
         self.logger.info(f"流表删除请求 - 表ID:{table_id}")
 
+    # 流表修改
     def modify_flow(self, datapath, priority, match, actions, idle_timeout=0, hard_timeout=0, table_id=0):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
@@ -659,6 +710,7 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
         datapath.send_msg(mod)
         self.logger.info(f"流表修改成功 - 表ID:{table_id}, 优先级:{priority}")
 
+    # 得到流表
     def get_flows(self, dpid, table_id=None):
         if dpid not in self.flow_stats:
             return []
@@ -712,16 +764,24 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
         
         return self.app_deployment_manager.list_applications()
 
+    # 检查扩展功能 - 确保 IoT 扩展功能已启用
+    # 处理设备能力 - 根据传入的能力参数创建 DeviceCapabilities 对象
+    # 设置设备模式 - 将初始模式转换为 DeviceMode 枚举
+    # 注册设备 - 通过 device_role_manager 将设备注册到控制器
+    # 记录日志 - 记录设备注册成功的日志
+    # 返回设备 - 返回注册的设备对象
+
+    # 将连接的传感器设备在控制器统一创建设备实例。
     def register_device_with_role(self, device_id, device_name, initial_mode=1, capabilities=None):
         """注册设备并设置角色"""
         if not self.extension_enabled:
             raise RuntimeError("扩展功能未启用")
-        
+
         if capabilities:
             caps = DeviceCapabilities(**capabilities)
         else:
             caps = DeviceCapabilities()
-        
+
         mode = DeviceMode(initial_mode)
         device = self.device_role_manager.register_device(
             device_id=device_id,

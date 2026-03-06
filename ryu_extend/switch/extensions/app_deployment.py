@@ -9,7 +9,10 @@ import struct
 from datetime import datetime
 from enum import Enum
 
-
+# DATA_FILTER - 数据过滤应用（值为1）
+# AI_INFERENCE - AI推理应用（值为2）
+# DATA_AGGREGATION - 数据聚合应用（值为3）
+# CUSTOM - 自定义应用（值为4）
 class AppType(Enum):
     DATA_FILTER = 1
     AI_INFERENCE = 2
