@@ -60,6 +60,8 @@
             <button class="tab-btn" onclick="switchTab('flows', this)">流表管理</button>
             <button class="tab-btn" onclick="switchTab('stats', this)">统计数据</button>
             <button class="tab-btn" onclick="switchTab('logs', this)">日志监控</button>
+            <button class="tab-btn" onclick="switchTab('apps', this)">边缘应用管理</button>
+            <button class="tab-btn" onclick="switchTab('roles', this)">设备角色管理</button>
         </div>
         
         <div class="top-status-bar">
@@ -170,17 +172,137 @@
                 <div class="logs-container" id="s2-logs-container"></div>
             </div>
         </div>
+        
+        <div id="apps" class="tab-content">
+            <div class="section">
+                <h2>创建边缘应用</h2>
+                <div class="form-group">
+                    <input type="text" class="form-input" id="app-id" placeholder="应用ID (如: app001)">
+                    <input type="text" class="form-input" id="app-name" placeholder="应用名称">
+                </div>
+                <div class="form-group">
+                    <select class="form-input" id="app-type">
+                        <option value="1">1 - 数据过滤</option>
+                        <option value="2">2 - AI推理</option>
+                        <option value="3">3 - 数据聚合</option>
+                        <option value="4">4 - 自定义应用</option>
+                    </select>
+                    <input type="text" class="form-input" id="app-version" placeholder="版本 (默认: 1.0.0)" value="1.0.0">
+                </div>
+                <div class="form-group">
+                    <textarea class="form-input" id="app-code" placeholder="输入应用代码" rows="6" style="width: 100%; min-height: 120px;"></textarea>
+                </div>
+                <div class="form-group">
+                    <button class="btn btn-primary" onclick="createApp()">创建应用</button>
+                    <button class="btn btn-danger" onclick="refreshApps()">刷新列表</button>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>应用列表</h2>
+                <div id="apps-list-container"></div>
+            </div>
+            
+            <div class="section" id="app-details-section" style="display: none;">
+                <h2>应用详情</h2>
+                <div id="app-details-container"></div>
+                <div class="form-group" style="margin-top: 20px;">
+                    <select class="form-input" id="deploy-device">
+                        <option value="iot1">iot1 (温度传感器)</option>
+                        <option value="iot2">iot2 (湿度传感器)</option>
+                        <option value="iot3">iot3 (网关)</option>
+                        <option value="iot4">iot4 (位置传感器)</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="deployApp()">部署到设备</button>
+                    <button class="btn btn-danger" onclick="deleteApp()">删除应用</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="roles" class="tab-content">
+            <div class="section">
+                <h2>注册设备</h2>
+                <div class="form-group">
+                    <input type="text" class="form-input" id="role-device-id" placeholder="设备ID (如: dev001)">
+                    <input type="text" class="form-input" id="role-device-name" placeholder="设备名称">
+                </div>
+                <div class="form-group">
+                    <select class="form-input" id="role-initial-mode">
+                        <option value="1">1 - 纯转发</option>
+                        <option value="2">2 - 计算混合</option>
+                        <option value="3">3 - 物联网网关</option>
+                    </select>
+                    <input type="number" class="form-input" id="role-cpu-cores" placeholder="CPU核心数" value="1">
+                </div>
+                <div class="form-group">
+                    <input type="number" class="form-input" id="role-memory-mb" placeholder="内存(MB)" value="512">
+                    <input type="number" class="form-input" id="role-storage-mb" placeholder="存储(MB)" value="1024">
+                </div>
+                <div class="form-group">
+                    <label style="color: #a0aec0; margin-right: 15px;">
+                        <input type="checkbox" id="role-supports-nat"> 支持NAT
+                    </label>
+                    <label style="color: #a0aec0; margin-right: 15px;">
+                        <input type="checkbox" id="role-supports-container"> 支持容器
+                    </label>
+                    <label style="color: #a0aec0;">
+                        <input type="checkbox" id="role-supports-ble"> 支持BLE
+                    </label>
+                </div>
+                <div class="form-group">
+                    <button class="btn btn-primary" onclick="registerDevice()">注册设备</button>
+                    <button class="btn btn-danger" onclick="refreshDevices()">刷新列表</button>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>设备列表</h2>
+                <div id="devices-list-container"></div>
+            </div>
+            
+            <div class="section" id="device-details-section" style="display: none;">
+                <h2>设备详情</h2>
+                <div id="device-details-container"></div>
+                <div class="section" style="margin-top: 20px;">
+                    <h4 style="color: #a0aec0; margin-bottom: 10px;">切换设备角色</h4>
+                    <div class="form-group">
+                        <select class="form-input" id="target-mode">
+                            <option value="1">1 - 纯转发</option>
+                            <option value="2">2 - 计算混合</option>
+                            <option value="3">3 - 物联网网关</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="switchDeviceMode()">切换模式</button>
+                    </div>
+                </div>
+                <div class="section" style="margin-top: 20px;">
+                    <h4 style="color: #a0aec0; margin-bottom: 10px;">智能推荐</h4>
+                    <div class="form-group">
+                        <button class="btn btn-primary" onclick="identifyOptimalMode()">识别最优模式</button>
+                    </div>
+                    <div id="recommendation-container" style="margin-top: 15px;"></div>
+                </div>
+                <div class="form-group" style="margin-top: 20px;">
+                    <button class="btn btn-danger" onclick="deleteDevice()">删除设备</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
         let currentData = null;
         let currentTopology = { switches: [], links: [], hosts: [] };
         let currentStats = { port_stats: {}, flow_stats: {}, table_stats: {} };
+        let currentApps = [];
+        let selectedAppId = null;
+        let currentDevices = [];
+        let selectedDeviceId = null;
         
         window.onload = function() {
             fetchData();
             fetchTopology();
             fetchStats();
+            fetchApps();
+            fetchDevices();
             setInterval(() => {
                 fetchData();
                 fetchTopology();
@@ -483,6 +605,484 @@
                 fetchData();
             })
             .catch(err => alert('清空失败: ' + err));
+        }
+        
+        function fetchApps() {
+            fetch('/api/apps')
+                .then(res => res.json())
+                .then(data => {
+                    currentApps = data.apps || [];
+                    updateAppsList();
+                })
+                .catch(err => console.error('获取应用列表失败:', err));
+        }
+        
+        function refreshApps() {
+            fetchApps();
+        }
+        
+        function updateAppsList() {
+            const container = document.getElementById('apps-list-container');
+            if (!currentApps || currentApps.length === 0) {
+                container.innerHTML = '<div class="log-item" style="text-align: center; color: #718096;">暂无应用，请先创建</div>';
+                return;
+            }
+            
+            const appTypeNames = {1: '数据过滤', 2: 'AI推理', 3: '数据聚合', 4: '自定义'};
+            const statusNames = {0: '未部署', 1: '部署中', 2: '运行中', 3: '已停止', 4: '错误'};
+            const statusColors = {0: '#a0aec0', 1: '#ecc94b', 2: '#48bb78', 3: '#718096', 4: '#e53e3e'};
+            
+            container.innerHTML = currentApps.map(app => `
+                <div class="flow-item" style="cursor: pointer; transition: background 0.2s;" 
+                     onmouseover="this.style.background='rgba(102,126,234,0.2)'" 
+                     onmouseout="this.style.background='transparent'"
+                     onclick="selectApp('${app.app_id}')">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong style="color: #667eea;">${app.app_id}</strong> - ${app.app_name}
+                            <span style="margin-left: 10px; padding: 2px 8px; background: rgba(102,126,234,0.3); border-radius: 4px; font-size: 12px;">
+                                ${appTypeNames[app.app_type]}
+                            </span>
+                        </div>
+                        <div style="color: ${statusColors[app.status]};">
+                            ${statusNames[app.status]}
+                        </div>
+                    </div>
+                    <div style="color: #a0aec0; font-size: 12px; margin-top: 5px;">
+                        版本: ${app.version} | 已部署到: ${app.deployed_devices.length > 0 ? app.deployed_devices.join(', ') : '无'}
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function selectApp(appId) {
+            selectedAppId = appId;
+            const app = currentApps.find(a => a.app_id === appId);
+            if (!app) return;
+            
+            const appTypeNames = {1: '数据过滤', 2: 'AI推理', 3: '数据聚合', 4: '自定义'};
+            const statusNames = {0: '未部署', 1: '部署中', 2: '运行中', 3: '已停止', 4: '错误'};
+            const statusColors = {0: '#a0aec0', 1: '#ecc94b', 2: '#48bb78', 3: '#718096', 4: '#e53e3e'};
+            
+            const detailsContainer = document.getElementById('app-details-container');
+            detailsContainer.innerHTML = `
+                <div class="grid">
+                    <div class="card">
+                        <div class="label">应用ID</div>
+                        <div class="value">${app.app_id}</div>
+                    </div>
+                    <div class="card">
+                        <div class="label">应用名称</div>
+                        <div class="value">${app.app_name}</div>
+                    </div>
+                    <div class="card">
+                        <div class="label">应用类型</div>
+                        <div class="value">${appTypeNames[app.app_type]}</div>
+                    </div>
+                    <div class="card">
+                        <div class="label">版本</div>
+                        <div class="value">${app.version}</div>
+                    </div>
+                    <div class="card">
+                        <div class="label">状态</div>
+                        <div class="value" style="color: ${statusColors[app.status]};">${statusNames[app.status]}</div>
+                    </div>
+                    <div class="card">
+                        <div class="label">已部署设备</div>
+                        <div class="value">${app.deployed_devices.length > 0 ? app.deployed_devices.length : 0}</div>
+                    </div>
+                </div>
+                <div class="section" style="margin-top: 20px;">
+                    <h4 style="color: #a0aec0; margin-bottom: 10px;">应用代码</h4>
+                    <div class="flows-container" style="font-family: 'Courier New', monospace; font-size: 12px;">
+                        ${app.app_code}
+                    </div>
+                </div>
+                <div class="section" style="margin-top: 20px;">
+                    <h4 style="color: #a0aec0; margin-bottom: 10px;">SHA256校验和</h4>
+                    <div style="font-family: 'Courier New', monospace; font-size: 12px; color: #667eea;">
+                        ${app.checksum}
+                    </div>
+                </div>
+                ${app.deployed_devices.length > 0 ? `
+                <div class="section" style="margin-top: 20px;">
+                    <h4 style="color: #a0aec0; margin-bottom: 10px;">已部署设备</h4>
+                    <div class="form-group">
+                        ${app.deployed_devices.map(deviceId => `
+                            <button class="btn btn-danger" style="margin-right: 10px; margin-bottom: 10px;" 
+                                    onclick="event.stopPropagation(); undeployApp('${app.app_id}', '${deviceId}')">
+                                从 ${deviceId} 卸载
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+                ` : ''}
+            `;
+            
+            document.getElementById('app-details-section').style.display = 'block';
+        }
+        
+        function createApp() {
+            const appId = document.getElementById('app-id').value.trim();
+            const appName = document.getElementById('app-name').value.trim();
+            const appType = parseInt(document.getElementById('app-type').value);
+            const appVersion = document.getElementById('app-version').value.trim() || '1.0.0';
+            const appCode = document.getElementById('app-code').value.trim();
+            
+            if (!appId || !appName || !appCode) {
+                alert('请填写完整的应用信息');
+                return;
+            }
+            
+            fetch('/api/apps', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    app_id: appId,
+                    app_name: appName,
+                    app_type: appType,
+                    app_code: appCode,
+                    version: appVersion
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('应用创建成功！');
+                    document.getElementById('app-id').value = '';
+                    document.getElementById('app-name').value = '';
+                    document.getElementById('app-code').value = '';
+                    fetchApps();
+                } else {
+                    alert('创建失败: ' + data.message);
+                }
+            })
+            .catch(err => alert('创建失败: ' + err));
+        }
+        
+        function deployApp() {
+            if (!selectedAppId) {
+                alert('请先选择一个应用');
+                return;
+            }
+            
+            const deviceId = document.getElementById('deploy-device').value;
+            
+            fetch(`/api/apps/${selectedAppId}/deploy`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ device_id: deviceId })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert(`应用已部署到 ${deviceId}！`);
+                    fetchApps();
+                    selectApp(selectedAppId);
+                } else {
+                    alert('部署失败: ' + data.message);
+                }
+            })
+            .catch(err => alert('部署失败: ' + err));
+        }
+        
+        function undeployApp(appId, deviceId) {
+            if (!confirm(`确定要从 ${deviceId} 卸载应用 ${appId} 吗？`)) return;
+            
+            fetch(`/api/apps/${appId}/undeploy`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ device_id: deviceId })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert(`应用已从 ${deviceId} 卸载！`);
+                    fetchApps();
+                    selectApp(appId);
+                } else {
+                    alert('卸载失败: ' + data.message);
+                }
+            })
+            .catch(err => alert('卸载失败: ' + err));
+        }
+        
+        function deleteApp() {
+            if (!selectedAppId) {
+                alert('请先选择一个应用');
+                return;
+            }
+            
+            if (!confirm(`确定要删除应用 ${selectedAppId} 吗？此操作不可恢复！`)) return;
+            
+            fetch(`/api/apps/${selectedAppId}`, {
+                method: 'DELETE'
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('应用已删除！');
+                    selectedAppId = null;
+                    document.getElementById('app-details-section').style.display = 'none';
+                    fetchApps();
+                } else {
+                    alert('删除失败: ' + data.message);
+                }
+            })
+            .catch(err => alert('删除失败: ' + err));
+        }
+        
+        function fetchDevices() {
+            fetch('/api/devices')
+                .then(res => res.json())
+                .then(data => {
+                    currentDevices = data.devices || [];
+                    updateDevicesList();
+                })
+                .catch(err => console.error('获取设备列表失败:', err));
+        }
+        
+        function refreshDevices() {
+            fetchDevices();
+        }
+        
+        function updateDevicesList() {
+            const container = document.getElementById('devices-list-container');
+            if (!currentDevices || currentDevices.length === 0) {
+                container.innerHTML = '<div class="log-item" style="text-align: center; color: #718096;">暂无设备，请先注册</div>';
+                return;
+            }
+            
+            const modeNames = {1: '纯转发', 2: '计算混合', 3: '物联网网关'};
+            const modeColors = {1: '#48bb78', 2: '#667eea', 3: '#ecc94b'};
+            
+            container.innerHTML = currentDevices.map(device => `
+                <div class="flow-item" style="cursor: pointer; transition: background 0.2s;" 
+                     onmouseover="this.style.background='rgba(102,126,234,0.2)'" 
+                     onmouseout="this.style.background='transparent'"
+                     onclick="selectDevice('${device.device_id}')">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong style="color: #667eea;">${device.device_id}</strong> - ${device.device_name}
+                        </div>
+                        <div style="color: ${modeColors[device.current_mode]};">
+                            ${modeNames[device.current_mode]}
+                        </div>
+                    </div>
+                    <div style="color: #a0aec0; font-size: 12px; margin-top: 5px;">
+                        CPU: ${device.capabilities.cpu_cores}核 | 内存: ${device.capabilities.memory_mb}MB | 切换次数: ${device.switch_count}
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function selectDevice(deviceId) {
+            selectedDeviceId = deviceId;
+            const device = currentDevices.find(d => d.device_id === deviceId);
+            if (!device) return;
+            
+            const modeNames = {1: '纯转发', 2: '计算混合', 3: '物联网网关'};
+            
+            const detailsContainer = document.getElementById('device-details-container');
+            detailsContainer.innerHTML = `
+                <div class="grid">
+                    <div class="card">
+                        <div class="label">设备ID</div>
+                        <div class="value">${device.device_id}</div>
+                    </div>
+                    <div class="card">
+                        <div class="label">设备名称</div>
+                        <div class="value">${device.device_name}</div>
+                    </div>
+                    <div class="card">
+                        <div class="label">当前模式</div>
+                        <div class="value" style="color: #667eea;">${modeNames[device.current_mode]}</div>
+                    </div>
+                    <div class="card">
+                        <div class="label">切换次数</div>
+                        <div class="value">${device.switch_count}</div>
+                    </div>
+                </div>
+                <div class="section" style="margin-top: 20px;">
+                    <h4 style="color: #a0aec0; margin-bottom: 10px;">设备能力</h4>
+                    <div class="grid">
+                        <div class="card">
+                            <div class="label">CPU核心数</div>
+                            <div class="value">${device.capabilities.cpu_cores}</div>
+                        </div>
+                        <div class="card">
+                            <div class="label">内存</div>
+                            <div class="value">${device.capabilities.memory_mb} MB</div>
+                        </div>
+                        <div class="card">
+                            <div class="label">存储</div>
+                            <div class="value">${device.capabilities.storage_mb} MB</div>
+                        </div>
+                        <div class="card">
+                            <div class="label">网络端口</div>
+                            <div class="value">${device.capabilities.network_ports}</div>
+                        </div>
+                    </div>
+                    <div class="grid" style="margin-top: 15px;">
+                        <div class="card">
+                            <div class="label">支持NAT</div>
+                            <div class="value" style="color: ${device.capabilities.supports_nat ? '#48bb78' : '#e53e3e'};">
+                                ${device.capabilities.supports_nat ? '是' : '否'}
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="label">支持容器</div>
+                            <div class="value" style="color: ${device.capabilities.supports_container ? '#48bb78' : '#e53e3e'};">
+                                ${device.capabilities.supports_container ? '是' : '否'}
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="label">支持BLE</div>
+                            <div class="value" style="color: ${device.capabilities.supports_ble ? '#48bb78' : '#e53e3e'};">
+                                ${device.capabilities.supports_ble ? '是' : '否'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('device-details-section').style.display = 'block';
+            document.getElementById('recommendation-container').innerHTML = '';
+        }
+        
+        function registerDevice() {
+            const deviceId = document.getElementById('role-device-id').value.trim();
+            const deviceName = document.getElementById('role-device-name').value.trim();
+            const initialMode = parseInt(document.getElementById('role-initial-mode').value);
+            const cpuCores = parseInt(document.getElementById('role-cpu-cores').value) || 1;
+            const memoryMb = parseInt(document.getElementById('role-memory-mb').value) || 512;
+            const storageMb = parseInt(document.getElementById('role-storage-mb').value) || 1024;
+            const supportsNat = document.getElementById('role-supports-nat').checked;
+            const supportsContainer = document.getElementById('role-supports-container').checked;
+            const supportsBle = document.getElementById('role-supports-ble').checked;
+            
+            if (!deviceId || !deviceName) {
+                alert('请填写完整的设备信息');
+                return;
+            }
+            
+            fetch('/api/devices', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    device_id: deviceId,
+                    device_name: deviceName,
+                    initial_mode: initialMode,
+                    capabilities: {
+                        cpu_cores: cpuCores,
+                        memory_mb: memoryMb,
+                        storage_mb: storageMb,
+                        network_ports: 2,
+                        supports_nat: supportsNat,
+                        supports_container: supportsContainer,
+                        supports_ble: supportsBle
+                    }
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('设备注册成功！');
+                    document.getElementById('role-device-id').value = '';
+                    document.getElementById('role-device-name').value = '';
+                    fetchDevices();
+                } else {
+                    alert('注册失败: ' + data.message);
+                }
+            })
+            .catch(err => alert('注册失败: ' + err));
+        }
+        
+        function switchDeviceMode() {
+            if (!selectedDeviceId) {
+                alert('请先选择一个设备');
+                return;
+            }
+            
+            const targetMode = parseInt(document.getElementById('target-mode').value);
+            
+            fetch(`/api/devices/${selectedDeviceId}/switch-mode`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ target_mode: targetMode })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('设备模式切换成功！');
+                    fetchDevices();
+                    selectDevice(selectedDeviceId);
+                } else {
+                    alert('切换失败: ' + data.message);
+                }
+            })
+            .catch(err => alert('切换失败: ' + err));
+        }
+        
+        function identifyOptimalMode() {
+            if (!selectedDeviceId) {
+                alert('请先选择一个设备');
+                return;
+            }
+            
+            fetch(`/api/devices/${selectedDeviceId}/identify`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    traffic_pattern: { iot_traffic_ratio: 30 },
+                    resource_usage: { cpu_usage: 50, memory_usage: 60 }
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const modeNames = {1: '纯转发', 2: '计算混合', 3: '物联网网关'};
+                    const container = document.getElementById('recommendation-container');
+                    container.innerHTML = `
+                        <div class="card" style="background: rgba(72, 187, 120, 0.2);">
+                            <div class="label">推荐最优模式</div>
+                            <div class="value" style="color: #48bb78;">${modeNames[data.identified_mode]}</div>
+                            <div class="label" style="margin-top: 10px;">可用模式</div>
+                            <div class="value" style="color: #a0aec0; font-size: 14px;">
+                                ${data.available_mode_names.join(', ') || '无'}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    alert('识别失败: ' + data.message);
+                }
+            })
+            .catch(err => alert('识别失败: ' + err));
+        }
+        
+        function deleteDevice() {
+            if (!selectedDeviceId) {
+                alert('请先选择一个设备');
+                return;
+            }
+            
+            if (!confirm(`确定要删除设备 ${selectedDeviceId} 吗？此操作不可恢复！`)) return;
+            
+            fetch(`/api/devices/${selectedDeviceId}`, {
+                method: 'DELETE'
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('设备已删除！');
+                    selectedDeviceId = null;
+                    document.getElementById('device-details-section').style.display = 'none';
+                    fetchDevices();
+                } else {
+                    alert('删除失败: ' + data.message);
+                }
+            })
+            .catch(err => alert('删除失败: ' + err));
         }
     </script>
 </body>
