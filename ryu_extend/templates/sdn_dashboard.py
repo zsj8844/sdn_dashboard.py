@@ -351,6 +351,20 @@ def stats_api():
         })
 
 # ============ 新增功能：流表管理API ============
+def convert_match_keywords(match_str):
+    keyword_map = {
+        'ipv4_src': 'nw_src',
+        'ipv4_dst': 'nw_dst',
+        'tcp_src': 'tp_src',
+        'tcp_dst': 'tp_dst',
+        'udp_src': 'tp_src',
+        'udp_dst': 'tp_dst'
+    }
+    for ryu_key, ovs_key in keyword_map.items():
+        match_str = match_str.replace(ryu_key, ovs_key)
+    return match_str
+
+
 @app.route('/api/flows', methods=['GET', 'POST', 'DELETE'])
 def flows_api():
     if request.method == 'POST':
@@ -366,6 +380,8 @@ def flows_api():
             table_id = flow_data.get('table_id', 0)
             match_str = flow_data.get('match', '')
             actions_str = flow_data.get('actions', 'output:2')
+            
+            match_str = convert_match_keywords(match_str)
             
             cmd = [
                 "sudo", "ovs-ofctl", "add-flow", switch_name, "-O", "OpenFlow13",
