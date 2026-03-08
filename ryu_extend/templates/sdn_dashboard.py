@@ -15,7 +15,18 @@ from extensions import (
 )
 
 # 配置日志
-logging.basicConfig(level=logging.INFO)
+log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../logs')
+os.makedirs(log_dir, exist_ok=True)
+log_file = os.path.join(log_dir, 'controller.log')
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(log_file, encoding='utf-8'),
+        logging.StreamHandler()
+    ]
+)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__, template_folder='.')

@@ -155,6 +155,28 @@ class IoTGatewaySimulator:
         
         time.sleep(interval)
     
+    def _send_iot_device_registration(self):
+        """发送IoT设备注册消息"""
+        # 注册iot1 - 温度传感器
+        register_msg1 = "register,iot1,temp"
+        self.forward_data(register_msg1, '192.168.1.12')
+        print(f"  发送注册消息: {register_msg1}")
+        time.sleep(1)
+        
+        # 注册iot2 - 湿度传感器
+        register_msg2 = "register,iot2,humidity"
+        self.forward_data(register_msg2, '192.168.1.12')
+        print(f"  发送注册消息: {register_msg2}")
+        time.sleep(1)
+        
+        # 注册iot4 - 位置传感器
+        register_msg3 = "register,iot4,pos"
+        self.forward_data(register_msg3, '192.168.1.12')
+        print(f"  发送注册消息: {register_msg3}")
+        time.sleep(1)
+        
+        print("  IoT设备注册消息发送完成")
+    
     def start_simulation(self):
         """开始模拟"""
         print(f"=== IoT网关模拟器启动 ===")
@@ -174,6 +196,10 @@ class IoTGatewaySimulator:
             print(f"  接收线程已启动")
         else:
             print(f"  无法启动接收线程")
+        
+        # 先发送IoT设备注册消息
+        print("\n  开始发送IoT设备注册消息...")
+        self._send_iot_device_registration()
         
         # 启动发送线程
         self.sender_thread = Thread(target=self._sender_loop)

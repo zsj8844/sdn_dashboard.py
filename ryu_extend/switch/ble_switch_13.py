@@ -1,4 +1,6 @@
 import requests
+import os
+import logging
 from ryu.app import simple_switch_13
 from ryu.controller import ofp_event
 from ryu.controller.handler import MAIN_DISPATCHER, CONFIG_DISPATCHER
@@ -9,6 +11,34 @@ from ryu.lib import hub
 import time
 import json
 from collections import defaultdict
+
+# 配置日志
+log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../logs')
+os.makedirs(log_dir, exist_ok=True)
+log_file = os.path.join(log_dir, 'controller.log')
+
+# 配置ryu的日志输出到文件
+ryu_logger = logging.getLogger('ryu')
+ryu_logger.setLevel(logging.DEBUG)
+
+# 添加文件处理器
+file_handler = logging.FileHandler(log_file, encoding='utf-8')
+file_handler.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
+ryu_logger.addHandler(file_handler)
+
+# 同时也输出到控制台
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.DEBUG)
+console_handler.setFormatter(formatter)
+ryu_logger.addHandler(console_handler)
+
+# 确保BLEMeshSwitch13的日志也能输出
+ble_logger = logging.getLogger('ryu.app.simple_switch_13')
+ble_logger.setLevel(logging.DEBUG)
+ble_logger.addHandler(file_handler)
+ble_logger.addHandler(console_handler)
 #用于匹配和处理1001和1002ble数据包的常量
 BLE_ADDR_MATCH = 1001
 BLE_OUTPUT_ACTION = 1002
@@ -34,12 +64,19 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
         self.ip_port_map = {}
         self.mac_to_port = {}
 
+        self.logger.info("========== 控制器初始化开始 ==========")
+        self.logger.info(f"EXTENSIONS_AVAILABLE常量值: {EXTENSIONS_AVAILABLE}")
         self.extension_enabled = EXTENSIONS_AVAILABLE
+        self.logger.info(f"self.extension_enabled设置为: {self.extension_enabled}")
+        
         if self.extension_enabled:
             self.logger.info("OpenFlow扩展字段功能已启用")
+            self.logger.info("开始执行扩展字段功能测试...")
             self.test_extension_functionality()
+            self.logger.info("扩展字段功能测试完成")
         else:
             self.logger.warning("OpenFlow扩展字段功能不可用")
+            self.logger.warning("请检查extensions模块是否正确安装")
 
         # self.topology 是该实例的一个属性，用于存储网络拓扑信息，包括：
         # 'switches': 存储网络中所有交换机的信息
@@ -54,6 +91,9 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
         self.port_stats = defaultdict(list)
         self.flow_stats = defaultdict(list)
         self.table_stats = defaultdict(dict)
+        
+        # 已注册的IoT设备，用于去重
+        self.registered_iot_devices = set()
 
         #发送lldp协议信息 主动向邻居广播自己的身份和连接信息 拓扑管理
         self.lldp_thread = hub.spawn(self._lldp_sender)
@@ -179,25 +219,58 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
                 self.ip_port_map[src_ip] = in_port
                 self.logger.debug(f"IP端口映射更新: {self.ip_port_map}")
 
-                if eth_pkt.src not in self.topology['hosts']:
-                    self.topology['hosts'][eth_pkt.src] = {
-                        'mac': eth_pkt.src,
-                        'ip': ip_pkt.src,
-                        'switch_dpid': dpid,
-                        'port': in_port,
-                        'first_seen': time.time()
-                    }
-                    self._report_topology_to_web()
+                # 检查是否是IoT设备注册消息
+                is_iot_register_msg = False
+                if udp_pkt and udp_pkt.dst_port == 5005:
+                    try:
+                        ip_header_len = (ip_pkt.version & 0xF) * 4
+                        total_header_len = 14 + ip_header_len + 8
+                        if total_header_len < len(msg.data):
+                            ble_raw_data = msg.data[total_header_len:].decode('utf-8', errors='ignore').strip()
+                            # 检查是否是注册消息格式: register,<device_id>,<device_type>
+                            if ble_raw_data.startswith('register,'):
+                                is_iot_register_msg = True
+                                self._handle_iot_device_registration(ble_raw_data, eth_pkt.src, ip_pkt.src, dpid, in_port)
+                    except Exception as e:
+                        self.logger.debug(f"检查IoT注册消息失败: {e}")
+                
+                # 只对非网关设备（iot1, iot2, iot4等）通过注册消息建立拓扑
+                # 网关(iot3)和传统主机(h1, h2)通过普通数据包建立拓扑
+                if not is_iot_register_msg:
+                    # 判断是否是网关或传统主机
+                    is_gateway_or_host = (
+                        src_ip in ['192.168.1.12', '192.168.1.20', '192.168.1.21'] or
+                        eth_pkt.src not in self.registered_iot_devices
+                    )
+                    
+                    if is_gateway_or_host and eth_pkt.src not in self.topology['hosts']:
+                        self.topology['hosts'][eth_pkt.src] = {
+                            'mac': eth_pkt.src,
+                            'ip': ip_pkt.src,
+                            'switch_dpid': dpid,
+                            'port': in_port,
+                            'first_seen': time.time()
+                        }
+                        self._report_topology_to_web()
 
             # 解析是为ble数据包
             is_ble_packet = (ip_pkt and udp_pkt and udp_pkt.dst_port == 5005)
+            self.logger.debug(f"检查是否为BLE数据包: is_ble_packet={is_ble_packet}, UDP端口={udp_pkt.dst_port if udp_pkt else 'N/A'}")
+            
             if is_ble_packet:
+                self.logger.info("========== 开始解析BLE数据包 ==========")
                 try:
                     ip_header_len = (ip_pkt.version & 0xF) * 4
                     total_header_len = 14 + ip_header_len + 8
+                    self.logger.debug(f"包头长度计算: IP头={ip_header_len}字节, 总包头={total_header_len}字节, 数据包总长={len(msg.data)}字节")
+                    
                     if total_header_len < len(msg.data):
                         ble_raw_data = msg.data[total_header_len:].decode('utf-8', errors='ignore').strip()
+                        self.logger.info(f"原始BLE数据: '{ble_raw_data}'")
+                        
                         ble_data = ble_raw_data.split(',', 2)
+                        self.logger.debug(f"分割后的数据段数: {len(ble_data)}, 内容: {ble_data}")
+                        
                         if len(ble_data) >= 3:
                             ble_addr, ble_type, ble_value = ble_data
                             self.ble_port_map[ble_addr] = in_port
@@ -206,14 +279,28 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
 
                             try:
                                 web_log_data = {"ble_addr": ble_addr, "type": ble_type, "value": ble_value, "src_ip": ip_pkt.src}
+                                self.logger.debug(f"准备推送到Web面板: {web_log_data}")
                                 requests.post("http://localhost:5000/api/logs", json=web_log_data, timeout=1)
+                                self.logger.debug("Web面板推送成功")
                             except Exception as e:
                                 self.logger.warning(f"推送网关日志失败: {e}")
 
+                            self.logger.info(f"准备调用process_iot_extension, extension_enabled={self.extension_enabled}")
                             if self.extension_enabled:
+                                self.logger.info("调用process_iot_extension...")
                                 self.process_iot_extension(ble_type, ble_value)
+                            else:
+                                self.logger.warning("扩展功能未启用，跳过process_iot_extension")
+                        else:
+                            self.logger.warning(f"BLE数据格式错误，期望至少3段，实际{len(ble_data)}段")
+                    else:
+                        self.logger.warning(f"数据包长度不足，总包头={total_header_len}, 数据总长={len(msg.data)}")
+                    
+                    self.logger.info("========== BLE数据包解析完成 ==========")
                 except Exception as e:
-                    self.logger.debug(f"BLE数据解析跳过: {e}")
+                    self.logger.error(f"BLE数据解析出错: {e}")
+                    import traceback
+                    self.logger.error(traceback.format_exc())
 
             dst = eth_pkt.dst
             out_port = None
@@ -307,27 +394,46 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
 
     # 测试扩展字段功能
     def test_extension_functionality(self):
+        self.logger.info("========== 开始扩展字段功能测试 ==========")
         try:
+            self.logger.info("创建测试扩展字段...")
             ext_mgr = create_iot_extension(
                 sensor_type='temp',
                 device_priority=3,
                 route_select='route_a'
             )
+            self.logger.info("测试扩展字段创建成功")
 
+            self.logger.info("开始序列化...")
             serialized = ext_mgr.serialize_to_experimenter()
             self.logger.info(f"扩展字段序列化测试成功 ({len(serialized)} bytes)")
+            self.logger.info(f"序列化数据 (十六进制): {serialized.hex()}")
 
+            self.logger.info("开始反序列化...")
             parsed_mgr = IoTExtensionManager.parse_from_experimenter(serialized)
             field_dict = parsed_mgr.get_field_dict()
             self.logger.info(f"扩展字段反序列化测试成功: {field_dict}")
+            
+            self.logger.info("========== 扩展字段功能测试全部通过 ==========")
 
         except Exception as e:
             self.logger.error(f"扩展字段功能测试失败: {e}")
+            import traceback
+            self.logger.error(traceback.format_exc())
             self.extension_enabled = False
+            self.logger.error("由于测试失败，扩展功能已禁用")
 
     # 处理iot扩展字段
     def process_iot_extension(self, ble_type, ble_value):
+        self.logger.info(f"========== 开始处理IoT扩展字段 ==========")
+        self.logger.info(f"输入参数 - ble_type: {ble_type}, ble_value: {ble_value}")
+        self.logger.info(f"extension_enabled状态: {self.extension_enabled}")
+        
         try:
+            if not self.extension_enabled:
+                self.logger.warning("扩展功能未启用，跳过处理")
+                return
+            
             sensor_mapping = {
                 'temp': 'temp',
                 'temperature': 'temp',
@@ -338,6 +444,7 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
             }
 
             sensor_type = sensor_mapping.get(ble_type.lower(), 'temp')
+            self.logger.info(f"映射后的传感器类型: {sensor_type}")
 
             # 优先级
             try:
@@ -350,23 +457,35 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
                     priority = 3
                 else:
                     priority = 2
+                self.logger.info(f"数值解析成功: {value_float}, 优先级: {priority}")
             except ValueError:
                 priority = 2
+                self.logger.warning(f"数值解析失败，使用默认优先级: {priority}")
 
+            self.logger.info("开始创建IoT扩展字段...")
             ext_mgr = create_iot_extension(
                 sensor_type=sensor_type,
                 device_priority=priority,
                 route_select='route_a'
             )
+            self.logger.info("IoT扩展字段创建成功")
 
             self.logger.info("IoT扩展字段已创建:")
             ext_mgr.print_fields()
 
             serialized_data = ext_mgr.serialize_to_experimenter()
-            self.logger.debug(f"扩展字段序列化完成 ({len(serialized_data)} bytes)")
+            self.logger.info(f"扩展字段序列化完成 ({len(serialized_data)} bytes)")
+            self.logger.info(f"序列化数据 (十六进制): {serialized_data.hex()}")
+            
+            field_dict = ext_mgr.get_field_dict()
+            self.logger.info(f"扩展字段字典: {field_dict}")
+            
+            self.logger.info(f"========== IoT扩展字段处理完成 ==========")
 
         except Exception as e:
-            self.logger.warning(f"处理IoT扩展字段时出错: {e}")
+            self.logger.error(f"处理IoT扩展字段时出错: {e}")
+            import traceback
+            self.logger.error(traceback.format_exc())
 
     # 当交换机返回端口统计信息，收集展示网络端口流量统计信息
     @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER)
@@ -576,9 +695,14 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
             )
             pkt.add_protocol(eth)
 
+            try:
+                chassis_id_bytes = bytes.fromhex(port.hw_addr.replace(':', ''))
+            except:
+                chassis_id_bytes = port.hw_addr.encode('utf-8')
+            
             chassis_id = lldp.ChassisID(
                 subtype=lldp.ChassisID.SUB_MAC_ADDRESS,
-                chassis_id=port.hw_addr
+                chassis_id=chassis_id_bytes
             )
             port_id = lldp.PortID(
                 subtype=lldp.PortID.SUB_PORT_COMPONENT,
@@ -593,6 +717,45 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
             pkt.serialize()
 
             self._send_lldp_packet(datapath, port_no, pkt.data)
+
+    # 处理IoT设备注册消息
+    def _handle_iot_device_registration(self, register_msg, mac_addr, ip_addr, dpid, in_port):
+        """
+        处理IoT设备注册消息
+        消息格式: register,<device_id>,<device_type>
+        """
+        try:
+            parts = register_msg.split(',')
+            if len(parts) >= 3:
+                device_id = parts[1]
+                device_type = parts[2]
+                
+                # 检查是否已经注册过，防止重复建立
+                if device_id in self.registered_iot_devices:
+                    self.logger.debug(f"IoT设备 {device_id} 已注册，跳过重复注册")
+                    return
+                
+                # 注册设备
+                self.registered_iot_devices.add(device_id)
+                
+                # 添加到拓扑中
+                self.topology['hosts'][mac_addr] = {
+                    'mac': mac_addr,
+                    'ip': ip_addr,
+                    'switch_dpid': dpid,
+                    'port': in_port,
+                    'device_id': device_id,
+                    'device_type': device_type,
+                    'first_seen': time.time(),
+                    'is_iot_device': True
+                }
+                
+                self.logger.info(f"IoT设备注册成功: {device_id} ({device_type}) - MAC:{mac_addr}, IP:{ip_addr}")
+                self._report_topology_to_web()
+            else:
+                self.logger.warning(f"注册消息格式错误: {register_msg}")
+        except Exception as e:
+            self.logger.error(f"处理IoT设备注册失败: {e}")
 
     # 发送LLDP报文
     def _send_lldp_packet(self, datapath, port_no, data):
