@@ -480,6 +480,13 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
             field_dict = ext_mgr.get_field_dict()
             self.logger.info(f"扩展字段字典: {field_dict}")
             
+            try:
+                self.logger.info("发送IoT扩展字段到Web面板...")
+                requests.post(f"{self.web_panel_url}/api/iot-extension", json=field_dict, timeout=1)
+                self.logger.info("IoT扩展字段已成功发送到Web面板")
+            except Exception as e:
+                self.logger.warning(f"发送IoT扩展字段到Web面板失败: {e}")
+            
             self.logger.info(f"========== IoT扩展字段处理完成 ==========")
 
         except Exception as e:
@@ -783,11 +790,11 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
         system_name = None
 
         for tlv in lldp_pkt.tlvs:
-            if tlv.tlv_type == lldp.lldp.LLDP_TLV_CHASSIS_ID:
+            if isinstance(tlv, lldp.ChassisID):
                 chassis_id = tlv.chassis_id
-            elif tlv.tlv_type == lldp.lldp.LLDP_TLV_PORT_ID:
+            elif isinstance(tlv, lldp.PortID):
                 port_id = tlv.port_id
-            elif tlv.tlv_type == lldp.lldp.LLDP_TLV_SYSTEM_NAME:
+            elif isinstance(tlv, lldp.SystemName):
                 system_name = tlv.system_name
 
         if chassis_id and port_id and system_name:

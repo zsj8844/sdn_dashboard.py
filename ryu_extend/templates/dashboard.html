@@ -126,6 +126,11 @@
             <h2>交换机s2数据传输日志</h2>
             <div class="logs-container" id="s2-logs-container"></div>
         </div>
+
+        <div class="section">
+            <h2>IoT扩展字段</h2>
+            <div class="overview-grid" id="iot-extension-container"></div>
+        </div>
     </div>
 
     <script>
@@ -155,6 +160,7 @@
                     updateLogs('gateway-logs-container', data.gateway_logs);
                     updateLogs('s1-logs-container', data.s1_logs);
                     updateLogs('s2-logs-container', data.s2_logs);
+                    updateIotExtension(data.iot_extension);
                     updateRefreshIndicator();
                 })
                 .catch(err => {
@@ -289,6 +295,69 @@
             indicator.className = 'refresh-indicator';
             document.body.appendChild(indicator);
             return indicator;
+        }
+
+        function updateIotExtension(extensionData) {
+            const container = document.getElementById('iot-extension-container');
+            if (!extensionData || Object.keys(extensionData).length === 0) {
+                container.innerHTML = '<div class="overview-card"><div class="label">暂无扩展字段数据</div></div>';
+                return;
+            }
+            
+            const sensorTypeNames = {
+                1: '温度传感器',
+                2: '湿度传感器',
+                3: '光照传感器',
+                4: '运动传感器',
+                5: '压力传感器'
+            };
+            
+            const routeSelectNames = {
+                1: '路由A',
+                2: '路由B'
+            };
+            
+            let html = '';
+            
+            if (extensionData.sensor_type !== undefined) {
+                const sensorName = sensorTypeNames[extensionData.sensor_type] || '未知';
+                html += `
+                    <div class="overview-card">
+                        <div class="label">传感器类型</div>
+                        <div class="value">${sensorName} (${extensionData.sensor_type})</div>
+                    </div>
+                `;
+            }
+            
+            if (extensionData.device_priority !== undefined) {
+                html += `
+                    <div class="overview-card">
+                        <div class="label">设备优先级</div>
+                        <div class="value">${extensionData.device_priority}</div>
+                    </div>
+                `;
+            }
+            
+            if (extensionData.route_select !== undefined) {
+                const routeName = routeSelectNames[extensionData.route_select] || '未知';
+                html += `
+                    <div class="overview-card">
+                        <div class="label">路由选择</div>
+                        <div class="value">${routeName} (${extensionData.route_select})</div>
+                    </div>
+                `;
+            }
+            
+            if (extensionData.timestamp) {
+                html += `
+                    <div class="overview-card">
+                        <div class="label">更新时间</div>
+                        <div class="value">${new Date(extensionData.timestamp * 1000).toLocaleString()}</div>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html || '<div class="overview-card"><div class="label">暂无扩展字段数据</div></div>';
         }
 
         function showErrorMessage(message) {

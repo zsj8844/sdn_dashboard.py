@@ -72,6 +72,9 @@ CURRENT_FLOWS = defaultdict(dict)
 APP_DEPLOYMENT_MANAGER = AppDeploymentManager()
 DEVICE_ROLE_MANAGER = DeviceRoleManager()
 
+# IoT扩展字段存储
+IOT_EXTENSION_DATA = None
+
 def get_switch_flows(switch_name):
     try:
         result = subprocess.run(
@@ -263,8 +266,25 @@ def api_data():
         "s2_logs": list(S2_LOG),
         "s1_flows": get_switch_flows("s1")[:10],
         "s2_flows": get_switch_flows("s2")[:10],
-        "switches_status": SWITCHES_STATUS.copy()
+        "switches_status": SWITCHES_STATUS.copy(),
+        "iot_extension": IOT_EXTENSION_DATA
     })
+
+@app.route('/api/iot-extension', methods=['GET', 'POST'])
+def iot_extension_api():
+    if request.method == 'POST':
+        try:
+            global IOT_EXTENSION_DATA
+            extension_data = request.json
+            IOT_EXTENSION_DATA = extension_data
+            IOT_EXTENSION_DATA['timestamp'] = time.time()
+            logger.info(f"接收IoT扩展字段: {extension_data}")
+            return jsonify({"status": "success"}), 200
+        except Exception as e:
+            logger.error(f"接收IoT扩展字段失败: {e}")
+            return jsonify({"status": "error", "message": str(e)}), 500
+    else:
+        return jsonify(IOT_EXTENSION_DATA or {})
 
 @app.route('/api/clear-data', methods=['POST'])
 def clear_data():
@@ -272,6 +292,8 @@ def clear_data():
         GATEWAY_LOG.clear()
         S1_LOG.clear()
         S2_LOG.clear()
+        global IOT_EXTENSION_DATA
+        IOT_EXTENSION_DATA = None
         for node in BLE_MESH_NODES:
             node["status"] = "离线"
             node["rssi"] = -100
