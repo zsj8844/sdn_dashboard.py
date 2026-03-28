@@ -110,6 +110,9 @@ def create_iot_sdn_topology():
     for host in [iot1, iot2, iot3, iot4, h1, h2]:
         setup_host_networking(host)
 
+    print(" 在 iot3 (网关) 上自动启动 IoT 网关程序...")
+    iot3.cmd('nohup /home/zhang/miniconda3/envs/ryu-env/bin/python3 /home/zhang/桌面/ryucontronl2/ryu_extend/topology/iot_gateway_enhanced.py > /home/zhang/桌面/ryucontronl2/ryu_extend/logs/gateway.log 2>&1 &')
+
     time.sleep(5)
 
     print("\n=== 网络连通性测试 ===")

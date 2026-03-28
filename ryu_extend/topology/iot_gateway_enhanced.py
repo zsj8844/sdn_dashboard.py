@@ -92,8 +92,10 @@ class IoTGatewayEnhanced:
         try:
             with open(log_file, 'a', encoding='utf-8') as f:
                 f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {msg}\n")
-        except:
-            pass
+                f.flush()
+                os.fsync(f.fileno())
+        except Exception as e:
+            print(f"  [警告] 写入日志失败: {e}")
     
     def encode_openflow_extension(self, ble_addr, data_type, data_value):
         """将IoT数据编码为OpenFlow Experimenter扩展字段"""
@@ -179,7 +181,9 @@ class IoTGatewayEnhanced:
             except Exception as e:
                 if not self.running:
                     break
-                pass
+                error_msg = f"  接收数据异常: {e}"
+                print(error_msg)
+                self._log_to_file(error_msg)
     
     def _process_received_data(self, data, addr):
         """处理接收到的数据包"""
@@ -287,16 +291,39 @@ class IoTGatewayEnhanced:
         
         print("  IoT设备注册消息发送完成")
     
-    def start_simulation(self):
-        """开始模拟"""
-        print(f"=== IoT网关模拟器启动（增强版）===")
-        print(f"网关IP: {self.gateway_ip}")
-        print(f"监听端口: {self.listen_port}")
-        print(f"目标端口: {self.target_port}")
-        print(f"控制器: {self.controller_ip}:{self.controller_port}")
-        print(f"OpenFlow扩展: {'启用' if EXTENSIONS_AVAILABLE else '禁用'}")
-        print("功能: 接收IoT数据、编码OpenFlow扩展、转发到SDN网络")
-        print("=" * 60)
+    def start_gateway(self):
+        """启动网关（仅接收和转发，不产生模拟数据）"""
+        startup_msg = f"=== IoT网关启动（增强版）==="
+        print(startup_msg)
+        self._log_to_file(startup_msg)
+        
+        info1 = f"网关IP: {self.gateway_ip}"
+        print(info1)
+        self._log_to_file(info1)
+        
+        info2 = f"监听端口: {self.listen_port}"
+        print(info2)
+        self._log_to_file(info2)
+        
+        info3 = f"目标端口: {self.target_port}"
+        print(info3)
+        self._log_to_file(info3)
+        
+        info4 = f"控制器: {self.controller_ip}:{self.controller_port}"
+        print(info4)
+        self._log_to_file(info4)
+        
+        info5 = f"OpenFlow扩展: {'启用' if EXTENSIONS_AVAILABLE else '禁用'}"
+        print(info5)
+        self._log_to_file(info5)
+        
+        info6 = "功能: 接收IoT数据、编码OpenFlow扩展、转发到SDN网络"
+        print(info6)
+        self._log_to_file(info6)
+        
+        separator = "=" * 60
+        print(separator)
+        self._log_to_file(separator)
         
         self.running = True
         
@@ -304,37 +331,25 @@ class IoTGatewayEnhanced:
             self.receiver_thread = Thread(target=self.handle_received_data)
             self.receiver_thread.daemon = True
             self.receiver_thread.start()
-            print(f"  接收线程已启动")
+            thread_msg = f"  接收线程已启动，等待真实IoT数据..."
+            print(thread_msg)
+            self._log_to_file(thread_msg)
         else:
-            print(f"  无法启动接收线程")
+            error_msg = f"  无法启动接收线程"
+            print(error_msg)
+            self._log_to_file(error_msg)
+            return
         
-        print("\n  开始发送IoT设备注册消息...")
-        self._send_iot_device_registration()
-        
-        self.sender_thread = Thread(target=self._sender_loop)
-        self.sender_thread.daemon = True
-        self.sender_thread.start()
-        print(f"  发送线程已启动")
-        
+        # 保持主线程运行，维持监听状态
         try:
             while self.running:
                 time.sleep(1)
         except KeyboardInterrupt:
-            self.stop_simulation()
+            self.stop_gateway()
     
-    def _sender_loop(self):
-        """发送线程主循环"""
-        while self.running:
-            for device in self.iot_devices:
-                if self.running:
-                    self.simulate_device_data(device)
-            
-            if self.running:
-                time.sleep(1)
-    
-    def stop_simulation(self):
-        """停止模拟"""
-        print("\n停止IoT网关模拟...")
+    def stop_gateway(self):
+        """停止网关"""
+        print("\n停止IoT网关...")
         self.running = False
         
         if self.listen_socket:
@@ -345,20 +360,18 @@ class IoTGatewayEnhanced:
         
         if self.receiver_thread and self.receiver_thread.is_alive():
             self.receiver_thread.join(timeout=2)
-        if self.sender_thread and self.sender_thread.is_alive():
-            self.sender_thread.join(timeout=2)
         
-        print("模拟器已停止")
+        print("网关已停止")
 
 def main():
     """主函数"""
     time.sleep(3)
     
     import sys
-    # # 强制刷新输出
-    # sys.stdout.reconfigure(line_buffering=True)
+    # 强制刷新输出
+    sys.stdout.reconfigure(line_buffering=True)
     
-    simulator = IoTGatewayEnhanced(
+    gateway = IoTGatewayEnhanced(
         gateway_ip='192.168.1.12',
         listen_port=5005,
         target_port=5005,
@@ -367,13 +380,13 @@ def main():
         use_udp=True
     )
     
-    # #模拟IoT数据发送
-    # try:
-    #     simulator.start_simulation()
-    # except KeyboardInterrupt:
-    #     print("\n收到中断信号...")
-    #     simulator.stop_simulation()
-    #     print("程序退出")
+    # 启动网关服务
+    try:
+        gateway.start_gateway()
+    except KeyboardInterrupt:
+        print("\n收到中断信号...")
+        gateway.stop_gateway()
+        print("程序退出")
 
 if __name__ == '__main__':
     main()

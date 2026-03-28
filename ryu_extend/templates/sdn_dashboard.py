@@ -255,13 +255,32 @@ def receive_s2_logs():
         logger.error(f"接收S2日志失败: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+def get_gateway_logs():
+    """从gateway.log文件读取最新的100行日志"""
+    try:
+        log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../logs/gateway.log')
+        # 如果当前路径没有，尝试另一个常见路径
+        if not os.path.exists(log_path):
+            log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../logs/gateway.log')
+            
+        if os.path.exists(log_path):
+            with open(log_path, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+                # 过滤空行并倒序返回（最新的在前）
+                logs = [line.strip() for line in lines if line.strip()]
+                return list(reversed(logs[-100:]))
+        return list(GATEWAY_LOG)
+    except Exception as e:
+        logger.error(f"读取网关日志失败: {e}")
+        return list(GATEWAY_LOG)
+
 @app.route("/api/data")
 def api_data():
     return jsonify({
         "ble_mesh": {
             "nodes": BLE_MESH_NODES
         },
-        "gateway_logs": list(GATEWAY_LOG),
+        "gateway_logs": get_gateway_logs(),
         "s1_logs": list(S1_LOG),
         "s2_logs": list(S2_LOG),
         "s1_flows": get_switch_flows("s1")[:10],
