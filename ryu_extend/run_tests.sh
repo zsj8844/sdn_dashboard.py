@@ -3,7 +3,7 @@ set -euo pipefail
 
 # ==================== 测试配置 ====================
 PROJECT_DIR="/home/zhang/桌面/ryucontronl2/ryu_extend"
-GATEWAY_SIMULATOR="topology/iot_gateway_simulator.py"
+GATEWAY_SIMULATOR="topology/iot_gateway_enhanced.py"
 FORWARDING_TEST="switch/test/gateway_forwarding_test.py"
 FULL_CHAIN_TEST="switch/test/full_chain_test.py"
 

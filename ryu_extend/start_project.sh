@@ -8,6 +8,7 @@ VENV_PYTHON3="/home/zhang/miniconda3/envs/ryu-env/bin/python3"
 CONTROLLER_SCRIPT="switch/ble_switch_13.py"
 DASHBOARD_SCRIPT="templates/sdn_dashboard.py"
 TOPOLOGY_SCRIPT="topology/iot_sdn_topology.py"
+GATEWAY_SCRIPT="topology/iot_gateway_enhanced.py"
 CONTROLLER_PORT=6634
 DASHBOARD_PORT=5000
 
@@ -16,6 +17,7 @@ LOG_DIR="$PROJECT_DIR/logs"
 CONTROLLER_LOG="$LOG_DIR/controller.log"
 DASHBOARD_LOG="$LOG_DIR/dashboard.log"
 TOPOLOGY_LOG="$LOG_DIR/topology.log"
+GATEWAY_LOG="$LOG_DIR/gateway.log"
 PID_FILE="$PROJECT_DIR/run.pid"
 
 # ==================== 工具函数 ====================
@@ -86,6 +88,17 @@ start_topology() {
     sleep 5
 }
 
+start_gateway() {
+    info "启动增强版IoT网关..."
+    cd "$PROJECT_DIR" || error "项目目录不存在"
+    sudo lsof -i:6650 -t | xargs -r kill -9 2>/dev/null || true
+    sudo lsof -i:5005 -t | xargs -r kill -9 2>/dev/null || true
+    nohup $VENV_PYTHON3 "$GATEWAY_SCRIPT" > "$GATEWAY_LOG" 2>&1 &
+    GATEWAY_PID=$!
+    echo $GATEWAY_PID >> "$PID_FILE"
+    info "网关PID：$GATEWAY_PID，日志：$GATEWAY_LOG"
+}
+
 # ==================== 检查服务 ====================
 check_service() {
     info "检查服务状态（等待30秒）..."
@@ -144,10 +157,12 @@ main() {
     start_controller
     start_dashboard
     # start_topology  # 已注释，手动启动拓扑
+    start_gateway
     check_service
     info "========================================"
     info "🎉 基础部署完成！"
     info "控制器日志：tail -f $CONTROLLER_LOG"
+    info "网关日志：tail -f $GATEWAY_LOG"
     info "普通面板：http://localhost:$DASHBOARD_PORT"
     info "增强版面板：http://localhost:$DASHBOARD_PORT/enhanced"
     info "增强功能：OpenFlow 1.3、拓扑管理、流表管理"
@@ -165,11 +180,13 @@ full_deployment() {
     start_controller
     start_dashboard
     # start_topology  # 已注释，手动启动拓扑
+    start_gateway
     check_service
     test_components
     info "========================================"
     info "🎉 完整部署完成！含自动化测试"
     info "控制器日志：tail -f $CONTROLLER_LOG"
+    info "网关日志：tail -f $GATEWAY_LOG"
     info "普通面板：http://localhost:$DASHBOARD_PORT"
     info "增强版面板：http://localhost:$DASHBOARD_PORT/enhanced"
     info "增强功能：OpenFlow 1.3、拓扑管理、流表管理"
