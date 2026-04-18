@@ -1,0 +1,22 @@
+# SDN物联网控制系统依赖文件
+# 基于Ryu控制器的SDN项目
+
+# 核心依赖
+ryu==4.34.0
+mininet
+
+# Web面板依赖
+Flask
+flask-cors
+
+# 网络和数据处理
+scapy
+requests
+
+# 开发工具
+pytest
+flake8
+black
+
+# 系统依赖（通过apt安装）
+# apt install -y python3-pip python3-venv openvswitch-switch openvswitch-common

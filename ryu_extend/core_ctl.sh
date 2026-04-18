@@ -1,7 +1,20 @@
 #!/bin/bash
 # SDN系统核心控制脚本 - 简化版（支持增强版网关）
 
-PROJECT="/home/zhang/桌面/ryucontronl2/ryu_extend"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT="$SCRIPT_DIR"
+VENV_NAME="${VENV_NAME:-ryu-env}"
+if [ -d "$SCRIPT_DIR/.venv/bin" ]; then
+    RYU_PYTHON="$SCRIPT_DIR/.venv/bin/python"
+    RYU_PYTHON3="$SCRIPT_DIR/.venv/bin/python3"
+elif command -v conda &>/dev/null; then
+    CONDA_PREFIX=$(conda info --base 2>/dev/null || echo "/opt/conda")
+    RYU_PYTHON="$CONDA_PREFIX/envs/$VENV_NAME/bin/python"
+    RYU_PYTHON3="$CONDA_PREFIX/envs/$VENV_NAME/bin/python3"
+else
+    RYU_PYTHON="python3"
+    RYU_PYTHON3="python3"
+fi
 ACTION="${1:-help}"
 
 # 颜色输出
@@ -12,53 +25,47 @@ error() { echo -e "\033[31m[ERROR]\033[0m $1"; }
 start_all() {
     info "启动SDN系统..."
     cd "$PROJECT"
-    
-    # 1. 清理环境
+
     sudo mn -c 2>/dev/null || true
     sudo killall -9 python3 ryu-manager 2>/dev/null || true
     sudo lsof -i:6634 -t | xargs -r kill -9 2>/dev/null || true
     sudo lsof -i:5000 -t | xargs -r kill -9 2>/dev/null || true
     sudo lsof -i:6650 -t | xargs -r kill -9 2>/dev/null || true
-    
-    # 2. 启动控制器
+
     info "启动控制器..."
-    nohup /home/zhang/miniconda3/envs/ryu-env/bin/python -m ryu.cmd.manager \
+    nohup $RYU_PYTHON -m ryu.cmd.manager \
         switch/ble_switch_13.py --ofp-tcp-listen-port 6634 \
         > logs/controller.log 2>&1 &
     CONTROLLER_PID=$!
     sleep 3
-    
-    # 3. 启动Web面板
+
     info "启动Web面板..."
-    nohup /home/zhang/miniconda3/envs/ryu-env/bin/python3 \
+    nohup $RYU_PYTHON3 \
         templates/sdn_dashboard.py \
         > logs/dashboard.log 2>&1 &
     WEB_PID=$!
     sleep 3
-    
-    # 4. 启动网络拓扑
+
     info "启动网络拓扑..."
     sudo nohup python3 topology/iot_sdn_topology.py \
         > logs/topology.log 2>&1 &
     TOPOLOGY_PID=$!
     sleep 3
-    
-    # 5. 启动增强版网关
-    info "启动增强版IoT网关（OpenFlow扩展）..."
-    nohup /home/zhang/miniconda3/envs/ryu-env/bin/python3 \
+
+    info "启动增强版网关（OpenFlow扩展）..."
+    nohup $RYU_PYTHON3 \
         topology/iot_gateway_enhanced.py \
         > logs/gateway.log 2>&1 &
     GATEWAY_PID=$!
-    
-    # 6. 保存PID
+
     echo "$CONTROLLER_PID" > logs/pids.txt
     echo "$WEB_PID" >> logs/pids.txt
     echo "$TOPOLOGY_PID" >> logs/pids.txt
     echo "$GATEWAY_PID" >> logs/pids.txt
-    
+
     info "系统启动完成！"
     info "控制器PID: $CONTROLLER_PID"
-    info "Web面板PID: $WEB_PID" 
+    info "Web面板PID: $WEB_PID"
     info "网络拓扑PID: $TOPOLOGY_PID"
     info "增强版网关PID: $GATEWAY_PID"
     info "访问Web界面: http://localhost:5000"
@@ -68,16 +75,16 @@ start_all() {
 start_enhanced_gateway() {
     info "启动增强版IoT网关..."
     cd "$PROJECT"
-    
+
     sudo lsof -i:6650 -t | xargs -r kill -9 2>/dev/null || true
     sudo lsof -i:5005 -t | xargs -r kill -9 2>/dev/null || true
-    
-    nohup /home/zhang/miniconda3/envs/ryu-env/bin/python3 \
+
+    nohup $RYU_PYTHON3 \
         topology/iot_gateway_enhanced.py \
         > logs/gateway.log 2>&1 &
     GATEWAY_PID=$!
     echo "$GATEWAY_PID" >> logs/pids.txt
-    
+
     info "增强版IoT网关已启动，PID: $GATEWAY_PID"
     info "日志: tail -f logs/gateway.log"
 }
@@ -85,21 +92,19 @@ start_enhanced_gateway() {
 stop_all() {
     info "关闭SDN系统..."
     cd "$PROJECT"
-    
-    # 杀掉进程
+
     if [ -f "logs/pids.txt" ]; then
         while read pid; do
             kill -TERM "$pid" 2>/dev/null || true
         done < logs/pids.txt
         rm -f logs/pids.txt
     fi
-    
-    # 清理残留
+
     sudo killall -9 python3 ryu-manager 2>/dev/null || true
     sudo mn -c 2>/dev/null || true
     sudo lsof -i:6634 -t | xargs -r kill -9 2>/dev/null || true
     sudo lsof -i:5000 -t | xargs -r kill -9 2>/dev/null || true
-    
+
     info "系统已关闭"
 }
 
@@ -121,6 +126,9 @@ show_help() {
     echo "  $0 status           查看系统状态"
     echo "  $0 help             显示帮助"
     echo
+    echo "环境变量:"
+    echo "  VENV_NAME  虚拟环境名称（默认：ryu-env）"
+    echo
     echo "增强功能:"
     echo "  - OpenFlow 1.3 协议支持 (流表下发 / 统计收集)"
     echo "  - 拓扑管理 (自动发现 + 可视化)"
@@ -132,7 +140,6 @@ show_help() {
     echo "  - 增强版面板: http://localhost:5000/enhanced"
 }
 
-# 主执行逻辑
 case "$ACTION" in
     "start")
         start_all

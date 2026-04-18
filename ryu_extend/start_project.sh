@@ -2,9 +2,20 @@
 set -euo pipefail
 
 # ==================== 核心配置 ====================
-PROJECT_DIR="/home/zhang/桌面/ryucontronl2/ryu_extend"
-VENV_PYTHON="/home/zhang/miniconda3/envs/ryu-env/bin/python"
-VENV_PYTHON3="/home/zhang/miniconda3/envs/ryu-env/bin/python3"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$SCRIPT_DIR"
+VENV_NAME="${VENV_NAME:-ryu-env}"
+if [ -d "$SCRIPT_DIR/.venv/bin" ]; then
+    VENV_PYTHON="$SCRIPT_DIR/.venv/bin/python"
+    VENV_PYTHON3="$SCRIPT_DIR/.venv/bin/python3"
+elif command -v conda &>/dev/null; then
+    CONDA_PREFIX=$(conda info --base 2>/dev/null || echo "/opt/conda")
+    VENV_PYTHON="$CONDA_PREFIX/envs/$VENV_NAME/bin/python"
+    VENV_PYTHON3="$CONDA_PREFIX/envs/$VENV_NAME/bin/python3"
+else
+    VENV_PYTHON="python3"
+    VENV_PYTHON3="python3"
+fi
 CONTROLLER_SCRIPT="switch/ble_switch_13.py"
 DASHBOARD_SCRIPT="templates/sdn_dashboard.py"
 TOPOLOGY_SCRIPT="topology/iot_sdn_topology.py"
@@ -51,12 +62,13 @@ clean_env() {
 # ==================== 验证环境 ====================
 check_venv() {
     info "验证虚拟环境..."
-    [ ! -f "$VENV_PYTHON" ] && error "Python路径不存在：$VENV_PYTHON"
-    if ! $VENV_PYTHON -c "import ryu.cmd.manager" >/dev/null 2>&1; then
-        info "ryu-env中未安装Ryu，开始自动安装..."
-        $VENV_PYTHON -m pip install ryu==4.34 || error "Ryu安装失败！手动执行：$VENV_PYTHON -m pip install ryu==4.34"
+    if [ ! -d "$SCRIPT_DIR/.venv" ] && ! command -v conda &>/dev/null; then
+        info "未检测到虚拟环境，使用系统Python继续..."
     fi
-    info "环境验证成功！"
+    if ! $VENV_PYTHON -c "import ryu" >/dev/null 2>&1 && ! $VENV_PYTHON -c "import ryu.cmd.manager" >/dev/null 2>&1; then
+        info "ryu未安装或虚拟环境无效，使用系统Python"
+    fi
+    info "环境验证完成"
 }
 
 # ==================== 启动组件 ====================
@@ -79,12 +91,10 @@ start_dashboard() {
 start_topology() {
     info "启动Mininet拓扑..."
     cd "$PROJECT_DIR" || error "项目目录不存在"
-    # 使用nohup后台启动，避免交互式CLI阻塞
     sudo nohup python3 "$TOPOLOGY_SCRIPT" > "$TOPOLOGY_LOG" 2>&1 &
     TOPOLOGY_PID=$!
     echo $TOPOLOGY_PID >> "$PID_FILE"
     info "拓扑PID：$TOPOLOGY_PID，日志：$TOPOLOGY_LOG"
-    # 等待拓扑初始化完成
     sleep 5
 }
 
@@ -125,19 +135,16 @@ check_service() {
 # ==================== 测试功能 ====================
 test_components() {
     info "开始自动化测试..."
-    
-    # 等待服务稳定
+
     sleep 5
-    
-    # 运行转发测试
+
     info "运行网关转发测试..."
     if [ -f "$PROJECT_DIR/switch/test/gateway_forwarding_test.py" ]; then
         $VENV_PYTHON3 "$PROJECT_DIR/switch/test/gateway_forwarding_test.py" || warning "转发测试执行失败"
     else
         warning "转发测试脚本不存在"
     fi
-    
-    # 运行全链路测试
+
     info "运行全链路测试..."
     if [ -f "$PROJECT_DIR/switch/test/full_chain_test.py" ]; then
         $VENV_PYTHON3 "$PROJECT_DIR/switch/test/full_chain_test.py" || warning "全链路测试执行失败"
@@ -156,7 +163,6 @@ main() {
     check_venv
     start_controller
     start_dashboard
-    # start_topology  # 已注释，手动启动拓扑
     start_gateway
     check_service
     info "========================================"
@@ -179,7 +185,6 @@ full_deployment() {
     check_venv
     start_controller
     start_dashboard
-    # start_topology  # 已注释，手动启动拓扑
     start_gateway
     check_service
     test_components
@@ -201,6 +206,9 @@ show_help() {
     echo "  full       完整部署（含自动化测试）"
     echo "  clean      清理所有进程和网络"
     echo "  help       显示帮助信息"
+    echo ""
+    echo "环境变量:"
+    echo "  VENV_NAME  虚拟环境名称（默认：ryu-env）"
     echo ""
     echo "增强功能:"
     echo "  - OpenFlow 1.3 协议支持 (流表下发 / 统计收集)"

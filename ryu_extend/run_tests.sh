@@ -2,7 +2,20 @@
 set -euo pipefail
 
 # ==================== 测试配置 ====================
-PROJECT_DIR="/home/zhang/桌面/ryucontronl2/ryu_extend"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$SCRIPT_DIR"
+VENV_NAME="${VENV_NAME:-ryu-env}"
+if [ -d "$SCRIPT_DIR/.venv/bin" ]; then
+    VENV_PYTHON="$SCRIPT_DIR/.venv/bin/python"
+    VENV_PYTHON3="$SCRIPT_DIR/.venv/bin/python3"
+elif command -v conda &>/dev/null; then
+    CONDA_PREFIX=$(conda info --base 2>/dev/null || echo "/opt/conda")
+    VENV_PYTHON="$CONDA_PREFIX/envs/$VENV_NAME/bin/python"
+    VENV_PYTHON3="$CONDA_PREFIX/envs/$VENV_NAME/bin/python3"
+else
+    VENV_PYTHON="python3"
+    VENV_PYTHON3="python3"
+fi
 GATEWAY_SIMULATOR="topology/iot_gateway_enhanced.py"
 FORWARDING_TEST="switch/test/gateway_forwarding_test.py"
 FULL_CHAIN_TEST="switch/test/full_chain_test.py"
@@ -22,7 +35,7 @@ warning() { echo -e "\033[33m[WARNING] $1\033[0m"; }
 start_gateway_simulator() {
     info "启动独立网关模拟器..."
     cd "$PROJECT_DIR" || error "项目目录不存在"
-    nohup python3 "$GATEWAY_SIMULATOR" > "$GATEWAY_LOG" 2>&1 &
+    nohup $VENV_PYTHON3 "$GATEWAY_SIMULATOR" > "$GATEWAY_LOG" 2>&1 &
     echo $! >> "$PID_FILE"
     info "网关模拟器PID：$(tail -n1 $PID_FILE)，日志：$GATEWAY_LOG"
 }
@@ -30,14 +43,14 @@ start_gateway_simulator() {
 run_forwarding_test() {
     info "运行网关转发验证测试..."
     cd "$PROJECT_DIR" || error "项目目录不存在"
-    python3 "$FORWARDING_TEST" > "$TEST_LOG" 2>&1
+    $VENV_PYTHON3 "$FORWARDING_TEST" > "$TEST_LOG" 2>&1
     info "转发测试完成，日志：$TEST_LOG"
 }
 
 run_full_chain_test() {
     info "运行全链路流转测试..."
     cd "$PROJECT_DIR" || error "项目目录不存在"
-    python3 "$FULL_CHAIN_TEST" > "$TEST_LOG" 2>&1
+    $VENV_PYTHON3 "$FULL_CHAIN_TEST" > "$TEST_LOG" 2>&1
     info "全链路测试完成，日志：$TEST_LOG"
 }
 
@@ -46,19 +59,15 @@ main() {
     info "========================================"
     info "🧪 开始阶段三测试（网关模拟+全链路验证）"
     info "========================================"
-    
-    # 启动独立网关模拟器
+
     start_gateway_simulator
-    
-    # 等待网关启动
+
     sleep 5
-    
-    # 运行转发测试
+
     run_forwarding_test
-    
-    # 运行全链路测试
+
     run_full_chain_test
-    
+
     info "========================================"
     info "✅ 阶段三测试完成！"
     info "测试日志：tail -f $TEST_LOG"
@@ -75,6 +84,9 @@ show_help() {
     echo "  forward    仅运行转发测试"
     echo "  chain      仅运行全链路测试"
     echo "  help       显示帮助信息"
+    echo ""
+    echo "环境变量:"
+    echo "  VENV_NAME  虚拟环境名称（默认：ryu-env）"
 }
 
 # ==================== 参数处理 ====================

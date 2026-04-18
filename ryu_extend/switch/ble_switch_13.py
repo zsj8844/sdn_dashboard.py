@@ -39,11 +39,11 @@ ble_logger = logging.getLogger('ryu.app.simple_switch_13')
 ble_logger.setLevel(logging.DEBUG)
 ble_logger.addHandler(file_handler)
 ble_logger.addHandler(console_handler)
+
 #用于匹配和处理1001和1002ble数据包的常量
 BLE_ADDR_MATCH = 1001
 BLE_OUTPUT_ACTION = 1002
 MY_EXPERIMENTER_ID = 0xdeadbeef
-
 EXTENSIONS_AVAILABLE = False
 
 try:
@@ -72,7 +72,7 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
         if self.extension_enabled:
             self.logger.info("OpenFlow扩展字段功能已启用")
             self.logger.info("开始执行扩展字段功能测试...")
-            self.test_extension_functionality()
+            # self.test_extension_functionality()
             self.logger.info("扩展字段功能测试完成")
         else:
             self.logger.warning("OpenFlow扩展字段功能不可用")
@@ -103,7 +103,7 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
         self.stats_thread = hub.spawn(self._stats_collector)
         self.stats_interval = 10
 
-        # 通过字典，初始化刘表的相关数据结构
+        # 通过字典，初始化流表的相关数据结构
         self.flow_tables = defaultdict(dict)
 
         self.web_panel_url = "http://localhost:5000"

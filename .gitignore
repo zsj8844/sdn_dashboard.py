@@ -19,4 +19,38 @@ logs/
 
 # 忽略系统文件
 .DS_Store
-Thumbs.db
+
+# 忽略虚拟环境
+venv/
+env/
+.venv/
+
+# 忽略依赖管理文件
+Pipfile*
+poetry.lock
+
+# 忽略打包文件
+build/
+dist/
+*.egg-info/
+
+# 忽略测试和覆盖报告
+.coverage
+coverage.xml
+pytest_cache/
+
+# 忽略临时文件
+*.tmp
+*.temp
+
+# 忽略编辑器备份文件
+*~
+
+# 忽略数据库文件
+*.db
+*.sqlite
+
+# 忽略配置文件
+*.conf
+*.cfg
+*.ini
