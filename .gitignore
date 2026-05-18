@@ -1,56 +1,42 @@
-# 忽略 ryu 完整源码目录
-ryu/
-
-# 忽略 Python 编译文件
+# ==================== Python ====================
 __pycache__/
 *.py[cod]
 *$py.class
+*.egg-info/
+*.egg
+dist/
+build/
 
-# 忽略日志文件
-logs/
-*.log
-
-# 忽略 PID 文件
-*.pid
-
-# 忽略 IDE 配置
-.idea/
-.vscode/
-
-# 忽略系统文件
-.DS_Store
-
-# 忽略虚拟环境
+# ==================== 虚拟环境 ====================
+.venv/
 venv/
 env/
-.venv/
-
-# 忽略依赖管理文件
+ryucontronl2/
 Pipfile*
 poetry.lock
 
-# 忽略打包文件
-build/
-dist/
-*.egg-info/
+# ==================== 日志 ====================
+logs/
+*.log
 
-# 忽略测试和覆盖报告
+# ==================== 运行时文件 ====================
+*.pid
+
+# ==================== IDE / 编辑器 ====================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ==================== 测试 ====================
 .coverage
 coverage.xml
-pytest_cache/
+htmlcov/
+.pytest_cache/
 
-# 忽略临时文件
+# ==================== 临时文件 ====================
 *.tmp
 *.temp
-
-# 忽略编辑器备份文件
-*~
-
-# 忽略数据库文件
-*.db
-*.sqlite
-
-# 忽略配置文件
-*.conf
-*.cfg
-*.ini
+*.bak

@@ -19,9 +19,17 @@ check_system_deps() {
             error "Open vSwitch安装失败，请手动安装: sudo apt install openvswitch-switch openvswitch-common"
         }
     fi
-    if ! command -v python3 &>/dev/null; then
-        error "Python 3未安装，请先安装Python 3"
+    # 优先使用 Python 3.10+，兼容 ryu 4.34 构建
+    for py in python3.10 python3.11 python3.12 python3; do
+        if command -v "$py" &>/dev/null; then
+            PYTHON_CMD="$py"
+            break
+        fi
+    done
+    if [ -z "${PYTHON_CMD:-}" ]; then
+        error "Python 3 未安装，请先安装 Python 3.10+"
     fi
+    info "使用 Python: $($PYTHON_CMD --version)"
     if ! command -v pip3 &>/dev/null; then
         error "pip3未安装，请先安装pip3: sudo apt install python3-pip"
     fi
@@ -35,7 +43,7 @@ create_venv() {
     fi
     
     info "创建虚拟环境: $VENV_DIR"
-    python3 -m venv "$VENV_DIR"
+    $PYTHON_CMD -m venv "$VENV_DIR"
     
     # 升级pip
     info "升级pip..."
