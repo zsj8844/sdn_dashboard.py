@@ -1,8 +1,31 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #111827;
+  background: #f3f4f6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code, pre {
+  font-family: ui-monospace, Consolas, 'Cascadia Code', monospace;
+}
+
+/* Layout */
 .app-layout {
   display: flex;
   min-height: 100vh;
 }
 
+/* Sidebar */
 .sidebar {
   width: 200px;
   background: #111827;
@@ -55,7 +78,7 @@
   color: #e5e7eb;
 }
 
-.sidebar-nav a.active {
+.sidebar-nav a.router-link-exact-active {
   background: #1d4ed8;
   color: #fff;
 }
@@ -66,6 +89,7 @@
   text-align: center;
 }
 
+/* Main content */
 .main-content {
   flex: 1;
   background: #f3f4f6;
@@ -104,7 +128,7 @@
   color: #dc2626;
 }
 
-/* Stats */
+/* Stats grid */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

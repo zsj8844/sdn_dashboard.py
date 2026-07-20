@@ -91,7 +91,7 @@
 
 - 项目根目录：`../`
 - 代码目录：`../switch/`
-- Web面板（React）：`../templates/sdn_dashboard_react/`
+- Web面板（Vue）：`../templates/sdn_dashboard_vue/`
 - Web面板（Jinja2）：`../templates/`
 - 拓扑脚本：`../topology/`
 

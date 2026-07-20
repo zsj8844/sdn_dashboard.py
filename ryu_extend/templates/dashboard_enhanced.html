@@ -32,7 +32,9 @@
         .card .label { color: #a0aec0; font-size: 14px; margin-bottom: 8px; }
         .card .value { color: #fff; font-size: 20px; font-weight: 600; }
         
-        .topology-container { width: 100%; height: 500px; background: rgba(0,0,0,0.3); border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); }
+        .topology-container { width: 100%; height: 500px; background: rgba(0,0,0,0.3); border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); overflow: hidden; }
+        .topology-container svg { cursor: grab; }
+        .topology-container svg:active { cursor: grabbing; }
         
         .flows-container, .logs-container, .stats-container { max-height: 400px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 15px; background: rgba(0,0,0,0.2); }
         .flow-item, .log-item, .stat-item { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 13px; color: #e2e8f0; font-family: 'Courier New', monospace; }
@@ -508,15 +510,30 @@
         function renderTopology() {
             const container = document.getElementById('topology-svg');
             container.innerHTML = '';
-            
+
             const width = container.clientWidth;
             const height = 500;
-            
+
             const svg = d3.select('#topology-svg')
                 .append('svg')
                 .attr('width', width)
-                .attr('height', height);
-            
+                .attr('height', height)
+                .attr('viewBox', `0 0 ${width} ${height}`);
+
+            // 定义缩放行为
+            const zoom = d3.zoom()
+                .scaleExtent([0.3, 5])          // 缩放范围: 30% ~ 500%
+                .translateExtent([[-width, -height], [width * 2, height * 2]])  // 平移边界
+                .on('zoom', (event) => {
+                    topoGroup.attr('transform', event.transform);
+                });
+
+            // 绑定缩放到 SVG
+            svg.call(zoom);
+
+            // 创建一个主分组，所有拓扑元素放在这里面，缩放/平移时变换这个分组
+            const topoGroup = svg.append('g').attr('class', 'topo-group');
+
             const nodes = [
                 { id: 's1', label: 's1', type: 'switch', x: width / 3, y: height / 2 },
                 { id: 's2', label: 's2', type: 'switch', x: width * 2 / 3, y: height / 2 },
@@ -527,7 +544,7 @@
                 { id: 'iot2', label: 'iot2', type: 'host', x: width / 3, y: 60 },
                 { id: 'iot4', label: 'iot4', type: 'host', x: width * 2 / 3, y: 80 }
             ];
-            
+
             const links = [
                 { source: 's1', target: 's2' },
                 { source: 's2', target: 'h1' },
@@ -537,8 +554,8 @@
                 { source: 'iot3', target: 'iot2' },
                 { source: 'iot3', target: 'iot4' }
             ];
-            
-            svg.selectAll('.link')
+
+            topoGroup.selectAll('.link')
                 .data(links)
                 .enter()
                 .append('line')
@@ -549,26 +566,41 @@
                 .attr('y2', d => nodes.find(n => n.id === d.target).y)
                 .attr('stroke', '#667eea')
                 .attr('stroke-width', 2);
-            
-            const node = svg.selectAll('.node')
+
+            const node = topoGroup.selectAll('.node')
                 .data(nodes)
                 .enter()
                 .append('g')
                 .attr('class', 'node')
                 .attr('transform', d => `translate(${d.x}, ${d.y})`);
-            
+
             node.append('circle')
                 .attr('r', 25)
                 .attr('fill', d => d.type === 'switch' ? '#667eea' : '#48bb78')
                 .attr('stroke', '#fff')
                 .attr('stroke-width', 2);
-            
+
             node.append('text')
                 .attr('text-anchor', 'middle')
                 .attr('dy', 5)
                 .attr('fill', '#fff')
                 .attr('font-weight', 'bold')
                 .text(d => d.label);
+
+            // 添加缩放提示
+            svg.append('text')
+                .attr('x', width - 180)
+                .attr('y', 20)
+                .attr('fill', '#a0aec0')
+                .attr('font-size', '12px')
+                .style('pointer-events', 'none')
+                .text('🖱 滚轮缩放 | 拖拽平移');
+
+            // 双击重置缩放
+            svg.on('dblclick.zoom', null);  // 移除默认的双击缩放
+            svg.on('dblclick', () => {
+                svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity);
+            });
         }
         
         function updateStats(stats) {

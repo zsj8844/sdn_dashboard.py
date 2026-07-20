@@ -256,7 +256,8 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
             # 解析是为ble数据包
             is_ble_packet = (ip_pkt and udp_pkt and udp_pkt.dst_port == 5005)
             self.logger.debug(f"检查是否为BLE数据包: is_ble_packet={is_ble_packet}, UDP端口={udp_pkt.dst_port if udp_pkt else 'N/A'}")
-            
+            extension_data = None
+
             if is_ble_packet:
                 self.logger.info("========== 开始解析BLE数据包 ==========")
                 try:
@@ -288,7 +289,7 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
                             self.logger.info(f"准备调用process_iot_extension, extension_enabled={self.extension_enabled}")
                             if self.extension_enabled:
                                 self.logger.info("调用process_iot_extension...")
-                                self.process_iot_extension(ble_type, ble_value)
+                                extension_data = self.process_iot_extension(ble_type, ble_value)
                             else:
                                 self.logger.warning("扩展功能未启用，跳过process_iot_extension")
                         else:
@@ -364,6 +365,15 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
                 else:
                     match = parser.OFPMatch(in_port=in_port, eth_dst=dst)
                 actions = [parser.OFPActionOutput(out_port)]
+
+                if extension_data:
+                    exp_action = parser.OFPActionExperimenterUnknown(
+                        experimenter=MY_EXPERIMENTER_ID,
+                        data=extension_data
+                    )
+                    actions.append(exp_action)
+                    self.logger.info(f"交换机{dpid} 注入Experimenter扩展字段: {len(extension_data)} bytes")
+
                 self.add_flow(datapath, 10, match, actions, idle_timeout=60)
                 if ip_pkt:
                     log_msg = f"交换机{dpid} 安装流表: 目标IP={ip_pkt.dst} -> out_port={out_port}"
@@ -473,26 +483,29 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
             self.logger.info("IoT扩展字段已创建:")
             ext_mgr.print_fields()
 
-            serialized_data = ext_mgr.serialize_to_experimenter()
-            self.logger.info(f"扩展字段序列化完成 ({len(serialized_data)} bytes)")
-            self.logger.info(f"序列化数据 (十六进制): {serialized_data.hex()}")
-            
+            # 仅序列化字段数据（不含 Experimenter ID 头），用于注入 OFPActionExperimenter
+            extension_data = ext_mgr.serialize_fields()
+            self.logger.info(f"扩展字段序列化完成 ({len(extension_data)} bytes)")
+            self.logger.info(f"序列化数据 (十六进制): {extension_data.hex()}")
+
             field_dict = ext_mgr.get_field_dict()
             self.logger.info(f"扩展字段字典: {field_dict}")
-            
+
             try:
                 self.logger.info("发送IoT扩展字段到Web面板...")
                 requests.post(f"{self.web_panel_url}/api/iot-extension", json=field_dict, timeout=1)
                 self.logger.info("IoT扩展字段已成功发送到Web面板")
             except Exception as e:
                 self.logger.warning(f"发送IoT扩展字段到Web面板失败: {e}")
-            
+
             self.logger.info(f"========== IoT扩展字段处理完成 ==========")
+            return extension_data
 
         except Exception as e:
             self.logger.error(f"处理IoT扩展字段时出错: {e}")
             import traceback
             self.logger.error(traceback.format_exc())
+            return None
 
     # 当交换机返回端口统计信息，收集展示网络端口流量统计信息
     @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER)

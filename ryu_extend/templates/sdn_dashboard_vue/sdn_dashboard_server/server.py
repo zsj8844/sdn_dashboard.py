@@ -29,13 +29,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# React 前端构建产物的路径（生产模式使用）
-REACT_DIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../sdn_dashboard_view/dist')
+# Vue 前端构建产物的路径（生产模式使用）
+VUE_DIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../sdn_dashboard_view/dist')
 
 app = Flask(
     __name__,
-    static_folder=os.path.join(REACT_DIST, 'assets'),
-    template_folder=REACT_DIST
+    static_folder=os.path.join(VUE_DIST, 'assets'),
+    template_folder=VUE_DIST
 )
 app.config['JSON_AS_ASCII'] = False
 
@@ -262,28 +262,28 @@ def device_to_dict(device):
     }
 
 
-# ============ React SPA 前端路由 ============
+# ============ Vue SPA 前端路由 ============
 
 @app.route("/")
 def index():
-    """生产模式：托管 React SPA"""
-    if os.path.exists(REACT_DIST):
-        return send_from_directory(REACT_DIST, 'index.html')
+    """生产模式：托管 Vue SPA"""
+    if os.path.exists(VUE_DIST):
+        return send_from_directory(VUE_DIST, 'index.html')
     return jsonify({
         "message": "SDN Dashboard API Server",
         "mode": "development",
-        "tip": "请启动 React 开发服务器: cd sdn_dashboard_view && npm run dev"
+        "tip": "请启动 Vue 开发服务器: cd sdn_dashboard_view && npm run dev"
     })
 
 
 @app.route("/<path:path>")
 def spa_fallback(path):
     """SPA fallback: 非 API 路由全部返回 index.html"""
-    if os.path.exists(REACT_DIST):
-        file_path = os.path.join(REACT_DIST, path)
+    if os.path.exists(VUE_DIST):
+        file_path = os.path.join(VUE_DIST, path)
         if os.path.isfile(file_path):
-            return send_from_directory(REACT_DIST, path)
-        return send_from_directory(REACT_DIST, 'index.html')
+            return send_from_directory(VUE_DIST, path)
+        return send_from_directory(VUE_DIST, 'index.html')
     return jsonify({"error": "Not found", "path": path}), 404
 
 
@@ -718,8 +718,8 @@ if __name__ == "__main__":
     threading.Thread(target=check_connectivity_by_flows, daemon=True, name="Connectivity_Checker").start()
 
     logger.info("=" * 60)
-    logger.info("SDN Dashboard 服务器启动（React 版）")
-    if os.path.exists(REACT_DIST):
+    logger.info("SDN Dashboard 服务器启动（Vue 版）")
+    if os.path.exists(VUE_DIST):
         logger.info("生产模式: http://localhost:5000")
     else:
         logger.info("开发模式: http://localhost:5000 (API)")

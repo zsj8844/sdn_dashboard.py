@@ -21,14 +21,21 @@ class IoTExtensionManager:
         """添加字段"""
         self.fields.append(field)
     
+    def serialize_fields(self):
+        """仅序列化字段数据（不含 Experimenter ID 头），用于 OFPActionExperimenter"""
+        data = struct.pack('!B', len(self.fields))
+        for field in self.fields:
+            data += field.serialize()
+        return data
+
     def serialize_to_experimenter(self):
         """序列化为Experimenter字段格式"""
         # 构造数据: 厂商ID(4B) + 字段数(1B) + 字段数据
         data = struct.pack('!IB', EXPERIMENTER_ID, len(self.fields))
-        
+
         for field in self.fields:
             data += field.serialize()
-        
+
         return data
     
     @classmethod

@@ -20,12 +20,16 @@ else:
 
 CTL_PORT = 6634
 DASH_PORT = 5000
+VUE_PORT = 5173
 GW_PORT = 5005
 EXT_PORT = 6650
+
+VUE_DIR = os.path.join(PROJECT_DIR, "templates/sdn_dashboard_vue/sdn_dashboard_view")
 
 LOG_DIR = os.path.join(PROJECT_DIR, "logs")
 CTL_LOG = os.path.join(LOG_DIR, "controller.log")
 DASH_LOG = os.path.join(LOG_DIR, "dashboard.log")
+VUE_LOG = os.path.join(LOG_DIR, "vue.log")
 GW_LOG = os.path.join(LOG_DIR, "gateway.log")
 PID_FILE = os.path.join(PROJECT_DIR, "run.pid")
 
@@ -80,6 +84,7 @@ def clean():
     subprocess.run(["sudo", "ovs-vsctl", "del-br", "s1", "s2"], capture_output=True)
     kill_port(CTL_PORT)
     kill_port(DASH_PORT)
+    kill_port(VUE_PORT)
     kill_port(EXT_PORT)
     pids = subprocess.run(["pgrep", "-f", "ryu.cmd.manager"],
                           capture_output=True, text=True).stdout.strip().split()
@@ -94,6 +99,7 @@ def status():
 
     print(f"控制器    ({CTL_PORT}端口): {check('控制器', CTL_PORT)}")
     print(f"Web面板   ({DASH_PORT}端口): {check('Web面板', DASH_PORT)}")
+    print(f"Vue前端   ({VUE_PORT}端口): {check('Vue', VUE_PORT)}")
     print(f"增强版网关({GW_PORT}/{EXT_PORT}端口): {check('网关', GW_PORT)}")
 
     mn = subprocess.run(["pgrep", "-f", "mininet"],
@@ -120,6 +126,7 @@ def stop():
     subprocess.run(["sudo", "mn", "-c"], capture_output=True)
     kill_port(CTL_PORT)
     kill_port(DASH_PORT)
+    kill_port(VUE_PORT)
     kill_port(EXT_PORT)
     info("系统已关闭")
 
@@ -166,9 +173,27 @@ def start_gateway():
     info(f"网关 PID: {p.pid}")
 
 
+def start_vue():
+    info("启动Vue前端开发服务器...")
+    kill_port(VUE_PORT)
+    npm = shutil.which("npm")
+    if not npm:
+        warn("未找到 npm，跳过 Vue 前端启动")
+        return
+    p = subprocess.Popen(
+        [npm, "run", "dev"],
+        cwd=VUE_DIR,
+        stdout=open(VUE_LOG, "w"),
+        stderr=subprocess.STDOUT,
+    )
+    with open(PID_FILE, "a") as f:
+        f.write(f"{p.pid}\n")
+    info(f"Vue面板 PID: {p.pid}")
+
+
 def check_service():
     info("等待服务就绪...")
-    for port, name in [(CTL_PORT, "控制器"), (DASH_PORT, "Web面板")]:
+    for port, name in [(CTL_PORT, "控制器"), (DASH_PORT, "Web面板"), (VUE_PORT, "Vue前端")]:
         for _ in range(30):
             if pid_of_port(port):
                 info(f"✅ {name} 端口 {port} 已监听")
@@ -187,13 +212,16 @@ def deploy():
     start_controller()
     start_dashboard()
     start_gateway()
+    start_vue()
     check_service()
     info("=" * 50)
     info("  部署完成！")
     info(f"  控制器日志: tail -f {CTL_LOG}")
     info(f"  网关日志:   tail -f {GW_LOG}")
+    info(f"  Vue日志:     tail -f {VUE_LOG}")
     info(f"  普通面板:   http://localhost:{DASH_PORT}")
     info(f"  增强版面板: http://localhost:{DASH_PORT}/enhanced")
+    info(f"  Vue面板:    http://localhost:{VUE_PORT}")
     info("=" * 50)
 
 
