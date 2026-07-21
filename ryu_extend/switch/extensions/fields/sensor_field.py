@@ -4,11 +4,13 @@
 
 import struct
 from .base_field import IoTExtensionField
-from .constants import SENSOR_TYPES
+from ..constants import SENSOR_TYPES
 
 class SensorTypeField(IoTExtensionField):
     """传感器类型字段"""
-    
+
+    FIELD_NAME = 'sensor_type'
+
     def __init__(self, sensor_type):
         if isinstance(sensor_type, str):
             sensor_type = SENSOR_TYPES.get(sensor_type.lower(), 1)
@@ -31,3 +33,6 @@ class SensorTypeField(IoTExtensionField):
         }
         name = sensor_names.get(self.value, f'未知传感器({self.value})')
         return f'SensorType: {name}'
+
+    def to_dict_entry(self):
+        return {self.FIELD_NAME: self.value}

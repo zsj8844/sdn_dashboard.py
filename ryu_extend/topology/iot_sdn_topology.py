@@ -48,7 +48,7 @@ def setup_host_networking(host):
                 host.cmd('ip addr add {} dev {}'.format(ip_addr, intf.name))
 
         host.cmd('sysctl -w net.ipv4.ip_forward=1 > /dev/null 2>&1')
-        print("  iot3 NAT/iptables 已配置完成")
+        print("  iot3 IP转发已开启（纯路由模式，路由由SDN控制器流表决策）")
         print("  iot3 接口配置:")
         print("    - iot3-eth0: 192.168.2.1 (连接iot1)")
         print("    - iot3-eth1: 192.168.3.1 (连接iot2)")

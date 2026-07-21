@@ -74,3 +74,28 @@ export async function undeployApp(appId, deviceId) {
   })
   return res.json()
 }
+
+// 设备身份配置
+export async function fetchDeviceIdentityConfig() {
+  const res = await fetch(`${BASE}/device-identity/config`)
+  return res.json()
+}
+
+export async function addDeviceIdentity(device) {
+  const res = await fetch(`${BASE}/device-identity/device`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(device),
+  })
+  return res.json()
+}
+
+export async function deleteDeviceIdentity(ip) {
+  const res = await fetch(`${BASE}/device-identity/device/${ip}`, { method: 'DELETE' })
+  return res.json()
+}
+
+export async function reloadControllerConfig() {
+  const res = await fetch(`${BASE}/device-identity/reload`, { method: 'POST' })
+  return res.json()
+}

@@ -346,7 +346,7 @@ class IoTGatewayEnhanced:
                 time.sleep(1)
         except KeyboardInterrupt:
             self.stop_gateway()
-    
+
     def stop_gateway(self):
         """停止网关"""
         print("\n停止IoT网关...")

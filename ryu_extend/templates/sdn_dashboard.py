@@ -2,6 +2,7 @@ from flask import Flask, render_template, jsonify, request
 import subprocess
 import threading
 import time
+import requests
 from collections import deque, defaultdict
 import logging
 import json
@@ -13,6 +14,7 @@ from extensions import (
     AppDeploymentManager, EdgeApplication, AppType, AppStatus,
     DeviceRoleManager, DeviceMode, DeviceCapabilities
 )
+from Other_Modules import config_manager
 
 # 配置日志
 log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../logs')
@@ -340,6 +342,17 @@ def topology_api():
     else:
         return jsonify(TOPOLOGY)
 
+@app.route('/api/topology/refresh', methods=['POST'])
+def topology_refresh():
+    """前端点击刷新按钮 → 触发控制器 LLDP 重新发现"""
+    try:
+        resp = requests.post('http://127.0.0.1:16634/refresh', timeout=3)
+        logger.info("LLDP 刷新触发成功: %s", resp.json())
+        return jsonify({"status": "success", "message": "拓扑刷新已触发"})
+    except Exception as e:
+        logger.error(f"LLDP 刷新触发失败: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 # ============ 新增功能：统计数据API ============
 @app.route('/api/stats', methods=['GET', 'POST'])
 def stats_api():
@@ -665,7 +678,86 @@ def device_switch_history_api(device_id):
 def enhanced_dashboard():
     return render_template("dashboard_enhanced.html", devices=DEVICES)
 
+
+# ==================== 设备身份配置 ====================
+
+@app.route('/api/device-identity/config', methods=['GET'])
+def get_device_identity_config():
+    return jsonify(config_manager.get_config())
+
+
+@app.route('/api/device-identity/config', methods=['PUT'])
+def update_device_identity_config():
+    new_config = request.json
+    if 'devices' not in new_config:
+        return jsonify({"status": "error", "message": "缺少devices字段"}), 400
+    config_manager.save_config(new_config)
+    logger.info("设备身份配置已全局更新")
+    return jsonify({"status": "success"}), 200
+
+
+@app.route('/api/device-identity/device', methods=['POST'])
+def add_device_identity():
+    data = request.json
+    ip = data.get('ip', '').strip()
+    if not ip:
+        return jsonify({"status": "error", "message": "缺少IP地址"}), 400
+    config = config_manager.get_config()
+    config['devices'][ip] = {
+        "device_id": data.get('device_id', ''),
+        "device_name": data.get('device_name', ''),
+        "device_type": data.get('device_type', 'host'),
+        "role": data.get('role', 'host'),
+        "description": data.get('description', '')
+    }
+    config_manager.save_config(config)
+    logger.info(f"添加设备身份映射: {ip} -> {data.get('device_id')}")
+    return jsonify({"status": "success"}), 200
+
+
+@app.route('/api/device-identity/device/<ip>', methods=['PUT'])
+def update_device_identity(ip):
+    data = request.json
+    config = config_manager.get_config()
+    if ip not in config['devices']:
+        return jsonify({"status": "error", "message": f"IP {ip} 不存在"}), 404
+    for field in ['device_id', 'device_name', 'device_type', 'role', 'description']:
+        if field in data:
+            config['devices'][ip][field] = data[field]
+    config_manager.save_config(config)
+    logger.info(f"更新设备身份映射: {ip}")
+    return jsonify({"status": "success"}), 200
+
+
+@app.route('/api/device-identity/device/<ip>', methods=['DELETE'])
+def delete_device_identity(ip):
+    config = config_manager.get_config()
+    if ip not in config['devices']:
+        return jsonify({"status": "error", "message": f"IP {ip} 不存在"}), 404
+    del config['devices'][ip]
+    config_manager.save_config(config)
+    logger.info(f"删除设备身份映射: {ip}")
+    return jsonify({"status": "success"}), 200
+
+
+@app.route('/api/device-identity/reload', methods=['POST'])
+def trigger_controller_reload():
+    config = config_manager.get_config()
+    from datetime import datetime
+    config['updated_at'] = datetime.now().isoformat()
+    config_manager.save_config(config)
+    logger.info("已触发控制器配置重载")
+    return jsonify({"status": "success", "message": "重载信号已发出"}), 200
+
+
 if __name__ == "__main__":
+    # 首次启动时自动生成默认设备身份配置
+    if not os.path.exists(config_manager.CONFIG_FILE):
+        default_config = config_manager.build_default_config()
+        config_manager.save_config(default_config)
+        logger.info("已创建默认设备身份配置文件")
+    config_manager.load_config()
+
     threading.Thread(target=listen_ble_mesh_data, daemon=True, name="BLE_Listener").start()
     threading.Thread(target=check_connectivity_by_flows, daemon=True, name="Connectivity_Checker").start()
     

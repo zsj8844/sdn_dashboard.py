@@ -4,6 +4,7 @@ const links = [
   { to: '/topology', label: '拓扑', icon: '⬡' },
   { to: '/flows', label: '流表', icon: '⇄' },
   { to: '/apps', label: '应用', icon: '⬢' },
+  { to: '/device-identity', label: '设备身份', icon: '⊡' },
 ]
 </script>
 

@@ -13,6 +13,7 @@ from extensions import (
     AppDeploymentManager, EdgeApplication, AppType, AppStatus,
     DeviceRoleManager, DeviceMode, DeviceCapabilities
 )
+from Other_Modules import config_manager
 
 # 配置日志
 log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../../logs')
@@ -713,7 +714,92 @@ def device_switch_history_api(device_id):
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+
+# ==================== 设备身份配置 ====================
+
+@app.route('/api/device-identity/config', methods=['GET'])
+def get_device_identity_config():
+    """获取全部设备身份配置"""
+    return jsonify(config_manager.get_config())
+
+
+@app.route('/api/device-identity/config', methods=['PUT'])
+def update_device_identity_config():
+    """整量替换设备身份配置"""
+    new_config = request.json
+    if 'devices' not in new_config:
+        return jsonify({"status": "error", "message": "缺少devices字段"}), 400
+    config_manager.save_config(new_config)
+    logger.info("设备身份配置已全局更新")
+    return jsonify({"status": "success"}), 200
+
+
+@app.route('/api/device-identity/device', methods=['POST'])
+def add_device_identity():
+    """添加单个设备身份映射"""
+    data = request.json
+    ip = data.get('ip', '').strip()
+    if not ip:
+        return jsonify({"status": "error", "message": "缺少IP地址"}), 400
+    config = config_manager.get_config()
+    config['devices'][ip] = {
+        "device_id": data.get('device_id', ''),
+        "device_name": data.get('device_name', ''),
+        "device_type": data.get('device_type', 'host'),
+        "role": data.get('role', 'host'),
+        "description": data.get('description', '')
+    }
+    config_manager.save_config(config)
+    logger.info(f"添加设备身份映射: {ip} -> {data.get('device_id')}")
+    return jsonify({"status": "success"}), 200
+
+
+@app.route('/api/device-identity/device/<ip>', methods=['PUT'])
+def update_device_identity(ip):
+    """修改单个设备身份映射"""
+    data = request.json
+    config = config_manager.get_config()
+    if ip not in config['devices']:
+        return jsonify({"status": "error", "message": f"IP {ip} 不存在"}), 404
+    for field in ['device_id', 'device_name', 'device_type', 'role', 'description']:
+        if field in data:
+            config['devices'][ip][field] = data[field]
+    config_manager.save_config(config)
+    logger.info(f"更新设备身份映射: {ip}")
+    return jsonify({"status": "success"}), 200
+
+
+@app.route('/api/device-identity/device/<ip>', methods=['DELETE'])
+def delete_device_identity(ip):
+    """删除单个设备身份映射"""
+    config = config_manager.get_config()
+    if ip not in config['devices']:
+        return jsonify({"status": "error", "message": f"IP {ip} 不存在"}), 404
+    del config['devices'][ip]
+    config_manager.save_config(config)
+    logger.info(f"删除设备身份映射: {ip}")
+    return jsonify({"status": "success"}), 200
+
+
+@app.route('/api/device-identity/reload', methods=['POST'])
+def trigger_controller_reload():
+    """触发控制器重载配置"""
+    config = config_manager.get_config()
+    from datetime import datetime
+    config['updated_at'] = datetime.now().isoformat()
+    config_manager.save_config(config)
+    logger.info("已触发控制器配置重载")
+    return jsonify({"status": "success", "message": "重载信号已发出"}), 200
+
+
 if __name__ == "__main__":
+    # 首次启动时自动生成默认设备身份配置
+    if not os.path.exists(config_manager.CONFIG_FILE):
+        default_config = config_manager.build_default_config()
+        config_manager.save_config(default_config)
+        logger.info("已创建默认设备身份配置文件")
+    config_manager.load_config()
+
     threading.Thread(target=listen_ble_mesh_data, daemon=True, name="BLE_Listener").start()
     threading.Thread(target=check_connectivity_by_flows, daemon=True, name="Connectivity_Checker").start()
 

@@ -30,3 +30,9 @@ class RoleSwitchField(BaseField):
     
     def __str__(self):
         return f"RoleSwitch(target_mode={self.target_mode}, force={self.force})"
+
+    def to_dict_entry(self):
+        return {self.FIELD_NAME: {
+            'target_mode': self.target_mode,
+            'force': self.force
+        }}

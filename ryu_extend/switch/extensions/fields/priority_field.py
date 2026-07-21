@@ -4,11 +4,13 @@
 
 import struct
 from .base_field import IoTExtensionField
-from .constants import PRIORITY_LEVELS
+from ..constants import PRIORITY_LEVELS
 
 class DevicePriorityField(IoTExtensionField):
     """设备优先级字段"""
-    
+
+    FIELD_NAME = 'device_priority'
+
     def __init__(self, priority):
         if isinstance(priority, str):
             priority = PRIORITY_LEVELS.get(priority.lower(), 2)
@@ -31,3 +33,6 @@ class DevicePriorityField(IoTExtensionField):
         }
         name = priority_names.get(self.value, f'级别{self.value}')
         return f'DevicePriority: {name}'
+
+    def to_dict_entry(self):
+        return {self.FIELD_NAME: self.value}

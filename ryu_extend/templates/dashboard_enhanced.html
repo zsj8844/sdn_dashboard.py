@@ -64,6 +64,7 @@
             <button class="tab-btn" onclick="switchTab('logs', this)">日志监控</button>
             <button class="tab-btn" onclick="switchTab('apps', this)">边缘应用管理</button>
             <button class="tab-btn" onclick="switchTab('roles', this)">设备角色管理</button>
+            <button class="tab-btn" onclick="switchTab('device-identity', this)">设备身份配置</button>
         </div>
         
         <div class="top-status-bar">
@@ -344,6 +345,44 @@
         </div>
     </div>
 
+        <!-- 设备身份配置 页签 -->
+        <div id="device-identity" class="tab-content">
+            <div class="section">
+                <h2>添加设备身份</h2>
+                <p style="color:#a0aec0;margin-bottom:15px;">
+                    配置IP地址与设备的映射关系。控制器收到数据包时自动根据源IP识别设备身份。
+                </p>
+                <div class="form-group">
+                    <input type="text" class="form-input" id="di-ip" placeholder="IP地址 (如 192.168.1.10)">
+                    <input type="text" class="form-input" id="di-device-id" placeholder="设备ID (如 iot1)">
+                    <input type="text" class="form-input" id="di-device-name" placeholder="设备名称 (如 温度传感器)">
+                    <select class="form-input" id="di-device-type">
+                        <option value="temperature_sensor">温度传感器</option>
+                        <option value="humidity_sensor">湿度传感器</option>
+                        <option value="position_sensor">位置传感器</option>
+                        <option value="light_sensor">光照传感器</option>
+                        <option value="gateway">网关</option>
+                        <option value="host">传统终端</option>
+                    </select>
+                    <select class="form-input" id="di-role">
+                        <option value="iot">IoT设备</option>
+                        <option value="gateway">网关</option>
+                        <option value="host">传统主机</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="addDeviceIdentity()">添加设备</button>
+                </div>
+                <button class="btn btn-primary" onclick="reloadControllerConfig()" style="margin-bottom:15px;">
+                    通知控制器重载配置
+                </button>
+            </div>
+            <div class="section">
+                <h2>已配置设备列表</h2>
+                <div id="device-identity-list-container">
+                    <div class="log-item">点击上方"通知控制器重载"加载设备列表</div>
+                </div>
+            </div>
+        </div>
+
     <script>
         let currentData = null;
         let currentTopology = { switches: [], links: [], hosts: [] };
@@ -373,6 +412,9 @@
             btn.classList.add('active');
             if (tabId === 'topology') {
                 setTimeout(renderTopology, 100);
+            }
+            if (tabId === 'device-identity') {
+                fetchDeviceIdentityConfig();
             }
         }
         
@@ -1229,6 +1271,94 @@
             }
             
             container.innerHTML = html || '<div class="card"><div class="label">暂无扩展字段数据</div></div>';
+        }
+
+        // ==================== 设备身份配置 ====================
+
+        function fetchDeviceIdentityConfig() {
+            fetch('/api/device-identity/config')
+                .then(res => res.json())
+                .then(config => {
+                    renderDeviceIdentityList(config);
+                })
+                .catch(err => console.error('获取设备身份配置失败:', err));
+        }
+
+        function renderDeviceIdentityList(config) {
+            const container = document.getElementById('device-identity-list-container');
+            const devices = config.devices || {};
+            const entries = Object.entries(devices);
+            if (entries.length === 0) {
+                container.innerHTML = '<div class="log-item">暂无设备配置</div>';
+                return;
+            }
+            container.innerHTML = entries.map(([ip, info]) => `
+                <div class="flow-item" style="display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                        <strong style="color:#667eea;">${info.device_id || ''}</strong>
+                        ${info.device_name ? '(' + info.device_name + ')' : ''}
+                        <span style="color:#a0aec0;margin-left:10px;">IP: ${ip}</span>
+                        <span style="color:#a0aec0;margin-left:10px;">类型: ${info.device_type || ''}</span>
+                        <span style="color:${
+                            info.role === 'gateway' ? '#ecc94b' :
+                            info.role === 'iot' ? '#48bb78' : '#a0aec0'
+                        };margin-left:10px;">[${info.role || 'host'}]</span>
+                    </div>
+                    <button class="btn btn-danger" onclick="deleteDeviceIdentity('${ip}')">删除</button>
+                </div>
+            `).join('');
+        }
+
+        function addDeviceIdentity() {
+            const ip = document.getElementById('di-ip').value.trim();
+            const device_id = document.getElementById('di-device-id').value.trim();
+            const device_name = document.getElementById('di-device-name').value.trim();
+            const device_type = document.getElementById('di-device-type').value;
+            const role = document.getElementById('di-role').value;
+            if (!ip || !device_id) {
+                alert('请填写IP地址和设备ID');
+                return;
+            }
+            fetch('/api/device-identity/device', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ip, device_id, device_name, device_type, role })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('添加成功');
+                    fetchDeviceIdentityConfig();
+                } else {
+                    alert('失败: ' + (data.message || '未知错误'));
+                }
+            })
+            .catch(err => alert('请求失败: ' + err));
+        }
+
+        function deleteDeviceIdentity(ip) {
+            if (!confirm('确定删除 ' + ip + ' 的设备配置？')) return;
+            fetch('/api/device-identity/device/' + ip, { method: 'DELETE' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        alert('删除成功');
+                        fetchDeviceIdentityConfig();
+                    } else {
+                        alert('失败: ' + (data.message || '未知错误'));
+                    }
+                })
+                .catch(err => alert('请求失败: ' + err));
+        }
+
+        function reloadControllerConfig() {
+            fetch('/api/device-identity/reload', { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    alert(data.message || '重载信号已发出');
+                    fetchDeviceIdentityConfig();
+                })
+                .catch(err => alert('请求失败: ' + err));
         }
     </script>
 </body>

@@ -4,11 +4,13 @@
 
 import struct
 from .base_field import IoTExtensionField
-from .constants import ROUTE_OPTIONS
+from ..constants import ROUTE_OPTIONS
 
 class RouteSelectField(IoTExtensionField):
     """路由选择字段"""
-    
+
+    FIELD_NAME = 'route_select'
+
     def __init__(self, route):
         if isinstance(route, str):
             route = ROUTE_OPTIONS.get(route.lower(), 1)
@@ -28,3 +30,6 @@ class RouteSelectField(IoTExtensionField):
         route_names = {1: '路径A(主路径)', 2: '路径B(备用路径)'}
         name = route_names.get(self.value, f'路径{self.value}')
         return f'RouteSelect: {name}'
+
+    def to_dict_entry(self):
+        return {self.FIELD_NAME: self.value}

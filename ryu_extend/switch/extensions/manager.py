@@ -5,11 +5,11 @@ IoT扩展字段管理器
 
 import struct
 from .constants import EXPERIMENTER_ID
-from .sensor_field import SensorTypeField
-from .priority_field import DevicePriorityField
-from .route_field import RouteSelectField
-from .app_field import AppDeploymentField
-from .role_field import RoleSwitchField
+from .fields.sensor_field import SensorTypeField
+from .fields.priority_field import DevicePriorityField
+from .fields.route_field import RouteSelectField
+from .fields.app_field import AppDeploymentField
+from .fields.role_field import RoleSwitchField
 
 class IoTExtensionManager:
     """IoT扩展字段管理器"""
@@ -75,23 +75,7 @@ class IoTExtensionManager:
         """获取字段字典"""
         result = {}
         for field in self.fields:
-            if isinstance(field, SensorTypeField):
-                result['sensor_type'] = field.value
-            elif isinstance(field, DevicePriorityField):
-                result['device_priority'] = field.value
-            elif isinstance(field, RouteSelectField):
-                result['route_select'] = field.value
-            elif isinstance(field, AppDeploymentField):
-                result['app_deployment'] = {
-                    'app_id': field.app_id,
-                    'action': field.action,
-                    'version': field.version
-                }
-            elif isinstance(field, RoleSwitchField):
-                result['role_switch'] = {
-                    'target_mode': field.target_mode,
-                    'force': field.force
-                }
+            result.update(field.to_dict_entry())
         return result
     
     def print_fields(self):

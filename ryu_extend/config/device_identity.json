@@ -1,0 +1,48 @@
+{
+  "version": "1.0",
+  "updated_at": "2026-07-21T14:30:42.502379",
+  "devices": {
+    "192.168.2.10": {
+      "device_id": "iot1",
+      "device_name": "温度传感器",
+      "device_type": "temperature_sensor",
+      "role": "iot",
+      "description": "BLE温度传感器节点（iot3子网）"
+    },
+    "192.168.3.11": {
+      "device_id": "iot2",
+      "device_name": "湿度传感器",
+      "device_type": "humidity_sensor",
+      "role": "iot",
+      "description": "BLE湿度传感器节点（iot3子网）"
+    },
+    "192.168.1.12": {
+      "device_id": "iot3",
+      "device_name": "IoT网关",
+      "device_type": "gateway",
+      "role": "gateway",
+      "description": "BLE/IoT协议网关"
+    },
+    "192.168.4.13": {
+      "device_id": "iot4",
+      "device_name": "位置传感器",
+      "device_type": "position_sensor",
+      "role": "iot",
+      "description": "BLE位置传感器节点（iot3子网）"
+    },
+    "192.168.1.20": {
+      "device_id": "h1",
+      "device_name": "传统终端1",
+      "device_type": "host",
+      "role": "host",
+      "description": "传统IP终端"
+    },
+    "192.168.1.21": {
+      "device_id": "h2",
+      "device_name": "传统终端2",
+      "device_type": "host",
+      "role": "host",
+      "description": "传统IP终端"
+    }
+  }
+}

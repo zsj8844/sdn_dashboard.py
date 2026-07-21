@@ -34,3 +34,10 @@ class AppDeploymentField(BaseField):
     
     def __str__(self):
         return f"AppDeployment(app_id={self.app_id}, action={self.action}, version={self.version})"
+
+    def to_dict_entry(self):
+        return {self.FIELD_NAME: {
+            'app_id': self.app_id,
+            'action': self.action,
+            'version': self.version
+        }}
