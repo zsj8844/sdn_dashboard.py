@@ -9,6 +9,16 @@ from ryu.controller.handler import MAIN_DISPATCHER, CONFIG_DISPATCHER, set_ev_cl
 from ryu.ofproto import ofproto_v1_3
 from ryu.lib import hub
 
+# 模块	职责
+# LLDPManager	链路发现协议，自动检测拓扑
+# StatsCollector	收集端口/流表/表统计信息
+# FlowManager	流表增删改查管理
+# ControlHTTPServer	内部 HTTP 控制服务
+# PacketProcessor	Packet-In 消息的核心转发逻辑处理
+# TopologyManager	拓扑管理 + 配置文件热加载
+# IoTProcessor	BLE/物联网协议扩展处理
+# DeviceManager	边缘设备管理（部署应用、角色切换、模式识别）
+# WebReporter	向 Web 面板上报拓扑和统计数据
 # ── 子模块 ──
 from Other_Modules import (
     setup_logging,
@@ -24,13 +34,15 @@ setup_logging()
 
 # ── 常量 ──
 EXTENSIONS_AVAILABLE = False
+
+# 导入扩展模块（如果可用），否则禁用扩展功能
 try:
     from extensions import AppDeploymentManager, DeviceRoleManager
     EXTENSIONS_AVAILABLE = True
 except ImportError:
     pass
 
-
+# ─────────────────────────────────────────────
 class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
@@ -52,7 +64,7 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
         self.table_stats = defaultdict(dict)
         self.flow_tables = defaultdict(dict)
 
-        # 配置
+        # 加载身份配置
         config_manager.load_config()
         self.device_identity_config = config_manager.get_config()
         self.logger.info("已加载设备身份配置: %d 个设备",
@@ -184,7 +196,6 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
     @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
     def flow_stats_reply_handler(self, ev):
         self.stats_collector.on_flow_stats_reply(ev)
-
     @set_ev_cls(ofp_event.EventOFPTableStatsReply, MAIN_DISPATCHER)
     def table_stats_reply_handler(self, ev):
         self.stats_collector.on_table_stats_reply(ev)
