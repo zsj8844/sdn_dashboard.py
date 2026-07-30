@@ -90,9 +90,9 @@ class PacketProcessor:
         # ⑦ BLE 解析
         ext = self._parse_ble(ip, udp_pkt, msg.data)
 
-        # ⑧ 路由 + 转发
+        # ⑧ 路由 + 转发（含 BLE Experimenter 字段嵌入流表）
         self._forward(datapath, dpid, eth, ip, msg, in_port,
-                      parser, ext['priority'], ext['route'])
+                      parser, ext['priority'], ext['route'], ext['data'])
 
     # ═══════════════════ ARP 主机发现 ═══════════════════
 
@@ -159,7 +159,7 @@ class PacketProcessor:
     # ═══════════════════ 转发 + 流表 ═══════════════════
 
     def _forward(self, datapath, dpid, eth, ip, msg, in_port, parser,
-                 ext_priority, ext_route):
+                 ext_priority, ext_route, ext_data=None):
         ofproto = datapath.ofproto
 
         if ip and (
@@ -196,6 +196,12 @@ class PacketProcessor:
             else:
                 match = parser.OFPMatch(in_port=in_port, eth_dst=dst)
             actions = [parser.OFPActionOutput(out_port)]
+            # BLE Experimenter 字段嵌入—温度和优先级编码进流表
+            if ext_data:
+                from extensions.constants import EXPERIMENTER_ID
+                actions.append(parser.OFPActionExperimenterUnknown(
+                    experimenter=EXPERIMENTER_ID, data=ext_data))
+                self.logger.info("Experimenter字段已嵌入流表 (%d bytes)", len(ext_data))
             priority = max(ext_priority * 10, 10)
             self.flow_mgr.add_flow(datapath, priority, match, actions, idle_timeout=60)
             self.logger.info(f"s{dpid} 流表: priority={priority} → port{out_port}")
