@@ -17,7 +17,7 @@ from threading import Thread
 import sys
 import os
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../switch'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '../ryucontronl2/ryu_extend/switch'))
 try:
     from extensions.manager import IoTExtensionManager, create_iot_extension
     from extensions.constants import SENSOR_TYPES, PRIORITY_LEVELS
@@ -86,7 +86,7 @@ class IoTGatewayEnhanced:
 
     def _log_to_file(self, msg):
         """写入日志文件"""
-        log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs')
+        log_dir = os.path.join(os.path.dirname(__file__), '../ryucontronl2/ryu_extend/logs')
         os.makedirs(log_dir, exist_ok=True)
         log_file = os.path.join(log_dir, 'gateway.log')
         try:

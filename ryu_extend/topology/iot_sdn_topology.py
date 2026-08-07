@@ -125,7 +125,7 @@ def create_iot_sdn_topology():
         setup_host_networking(host)
 
     python_path = get_python_path()
-    gateway_script = os.path.join(PROJECT_ROOT, 'topology', 'iot_gateway_enhanced.py')
+    gateway_script = os.path.join(os.path.dirname(PROJECT_ROOT), 'gateway', 'iot_gateway_enhanced.py')
     gateway_log = os.path.join(PROJECT_ROOT, 'logs', 'gateway.log')
 
     print(" 在 iot3 (网关) 上自动启动 IoT 网关程序...")

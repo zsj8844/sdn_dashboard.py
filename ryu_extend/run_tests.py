@@ -12,7 +12,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 LOG_DIR = SCRIPT_DIR / "logs"
 PID_FILE = SCRIPT_DIR / "run.pid"
 
-GATEWAY_SIMULATOR = "topology/iot_gateway_enhanced.py"
+GATEWAY_SIMULATOR = "../gateway/iot_gateway_enhanced.py"
 FORWARDING_TEST = "switch/test/v4_全链路/gateway_forwarding_test.py"
 FULL_CHAIN_TEST = "switch/test/v4_全链路/full_chain_test.py"
 

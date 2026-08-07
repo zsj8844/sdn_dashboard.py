@@ -104,7 +104,7 @@
 | 项目版本 | v4.5.0 |
 | 文档索引版本 | v1.2.0 |
 | 最后更新 | 2026-05-19 |
-| 项目路径 | `/home/zhang/桌面/sdn/ryucontronl2/ryu_extend/docx` |
+| 项目路径 | `/home/zhang/桌面/sdn/SDN_IOT/ryu_extend/docx` |
 
 ---
 

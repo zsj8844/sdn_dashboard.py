@@ -166,7 +166,7 @@ def start_gateway():
     info("启动增强版IoT网关...")
     kill_port(EXT_PORT)
     kill_port(GW_PORT)
-    p = run([PYTHON3, "topology/iot_gateway_enhanced.py"],
+    p = run([PYTHON3, "../gateway/iot_gateway_enhanced.py"],
             bg=True, log=GW_LOG)
     with open(PID_FILE, "a") as f:
         f.write(f"{p.pid}\n")

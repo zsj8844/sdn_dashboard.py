@@ -16,7 +16,7 @@ else
     VENV_PYTHON="python3"
     VENV_PYTHON3="python3"
 fi
-GATEWAY_SIMULATOR="topology/iot_gateway_enhanced.py"
+GATEWAY_SIMULATOR="../gateway/iot_gateway_enhanced.py"
 FORWARDING_TEST="switch/test/gateway_forwarding_test.py"
 FULL_CHAIN_TEST="switch/test/full_chain_test.py"
 
