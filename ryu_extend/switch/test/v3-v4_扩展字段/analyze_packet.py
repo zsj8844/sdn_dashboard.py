@@ -31,8 +31,10 @@ def analyze_experimenter_data(data):
         
         field_types = {
             1: "SensorType(传感器类型)",
-            2: "DevicePriority(设备优先级)", 
-            3: "RouteSelect(路由选择)"
+            2: "DevicePriority(设备优先级)",
+            3: "RouteSelect(路由选择)",
+            4: "AppDeployment(应用下发)",
+            5: "RoleSwitch(角色切换)"
         }
         
         sensor_names = {
@@ -58,31 +60,47 @@ def analyze_experimenter_data(data):
             2: "路径B(备用路径)"
         }
         
+        TLV_HEADER_SIZE = 4
         for i in range(field_count):
-            if len(buf) < 6:
+            if len(buf) < TLV_HEADER_SIZE:
                 print(f"字段 {i+1}: 数据不完整")
                 break
-                
-            field_type, reserved, value = struct.unpack('!BBI', buf[:6])
-            buf = buf[6:]
-            
+
+            field_type, field_length, reserved = struct.unpack('!BBH', buf[:TLV_HEADER_SIZE])
+            if field_length < TLV_HEADER_SIZE or field_length > len(buf):
+                print(f"字段 {i+1}: 长度字段 {field_length} 非法，流已失步")
+                break
+            payload = buf[TLV_HEADER_SIZE:field_length]
+            buf = buf[field_length:]
+
             print(f"字段 {i+1}:")
             print(f"  类型: {field_type} ({field_types.get(field_type, '未知类型')})")
-            print(f"  值: {value}")
-            
-            # 根据字段类型解释值
-            if field_type == 1:  # SensorType
-                sensor_name = sensor_names.get(value, f"未知传感器({value})")
-                print(f"  含义: {sensor_name}")
-            elif field_type == 2:  # DevicePriority
-                priority_name = priority_names.get(value, f"级别{value}")
-                print(f"  含义: {priority_name}")
-            elif field_type == 3:  # RouteSelect
-                route_name = route_names.get(value, f"路径{value}")
-                print(f"  含义: {route_name}")
+            print(f"  长度: {field_length} 字节 (负载 {len(payload)} 字节)")
+
+            # 根据字段类型解释负载
+            if field_type in (1, 2, 3):
+                value = struct.unpack('!I', payload[:4])[0]
+                print(f"  值: {value}")
+                if field_type == 1:  # SensorType
+                    print(f"  含义: {sensor_names.get(value, f'未知传感器({value})')}")
+                elif field_type == 2:  # DevicePriority
+                    print(f"  含义: {priority_names.get(value, f'级别{value}')}")
+                else:  # RouteSelect
+                    print(f"  含义: {route_names.get(value, f'路径{value}')}")
+            elif field_type == 4 and len(payload) >= 49:  # AppDeployment
+                app_id = payload[:32].rstrip(b'\x00').decode('utf-8', 'replace')
+                action = payload[32]
+                version = payload[33:49].rstrip(b'\x00').decode('utf-8', 'replace')
+                print(f"  值: app_id={app_id}, action={action}, version={version}")
+                print(f"  含义: 下发应用 {app_id} (动作={action}, 版本={version})")
+            elif field_type == 5 and len(payload) >= 2:  # RoleSwitch
+                target_mode, force = payload[0], payload[1] == 1
+                print(f"  值: target_mode={target_mode}, force={force}")
+                print(f"  含义: 切换到模式 {target_mode}{'(强制)' if force else ''}")
             else:
+                print(f"  值: {payload.hex()}")
                 print(f"  含义: 未知字段类型")
-            
+
             print()
             
         return True
@@ -118,12 +136,13 @@ def main():
         # 使用示例数据
         print("使用示例数据进行演示...")
         # 构造示例数据包: 厂商ID + 字段数 + 3个字段
+        # 每个字段 = 类型(1B) + 长度(1B) + 保留(2B) + 负载
         sample_data = (
-            b'\x12\x34\x56\x78' +  # 厂商ID
-            b'\x03' +              # 3个字段
-            b'\x01\x00\x00\x00\x00\x01' +  # SensorType=1(temp)
-            b'\x02\x00\x00\x00\x00\x03' +  # DevicePriority=3(high)
-            b'\x03\x00\x00\x00\x00\x01'    # RouteSelect=1(route_a)
+            b'\x12\x34\x56\x78' +                            # 厂商ID
+            b'\x03' +                                        # 3个字段
+            b'\x01\x08\x00\x00' + b'\x00\x00\x00\x01' +      # SensorType=1(temp)
+            b'\x02\x08\x00\x00' + b'\x00\x00\x00\x03' +      # DevicePriority=3(high)
+            b'\x03\x08\x00\x00' + b'\x00\x00\x00\x01'        # RouteSelect=1(route_a)
         )
         data = sample_data
     

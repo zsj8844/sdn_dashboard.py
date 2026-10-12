@@ -5,6 +5,7 @@ IoT扩展字段管理器
 
 import struct
 from .constants import EXPERIMENTER_ID
+from .fields.base_field import BaseField, TLV_HEADER_SIZE
 from .fields.sensor_field import SensorTypeField
 from .fields.priority_field import DevicePriorityField
 from .fields.route_field import RouteSelectField
@@ -60,15 +61,18 @@ class IoTExtensionManager:
         }
         
         for i in range(field_count):
-            if len(buf) < 6:
+            if len(buf) < TLV_HEADER_SIZE:
                 break
-            field_type = buf[0]
+            field_type, field_length, _reserved = BaseField.read_header(buf)
+            # 长度必须至少覆盖头部，且不能超出剩余数据，否则流已失步
+            if field_length < TLV_HEADER_SIZE or field_length > len(buf):
+                break
             field_class = field_classes.get(field_type)
             if field_class:
-                field = field_class.parse(buf)
+                field = field_class.parse(buf[:field_length])
                 manager.add_field(field)
-            buf = buf[6:]
-        
+            buf = buf[field_length:]
+
         return manager
     
     def get_field_dict(self):
