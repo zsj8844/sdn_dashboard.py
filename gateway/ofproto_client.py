@@ -127,7 +127,9 @@ class OFMessageBuilder:
     def hello(cls) -> bytes:
         """OFPHello with version bitmap element [0x04]."""
         bitmap = 1 << OFP_VERSION          # only OF 1.3
-        elem = struct.pack("!HH4sI4x", 1, 8, b"\x00" * 4, bitmap)
+        # OFPHET_VERSIONBITMAP 元素: type=1, length=4+4*N, 后接 N 个 32bit 位图。
+        # N=1 时元素共 8 字节（原实现产生 16 字节却声明 length=8，属畸形 HELLO）
+        elem = struct.pack("!HHI", 1, 8, bitmap)
         return cls._header(ofproto.OFPT_HELLO, elem)
 
     # ── OFPT_FEATURES_REPLY (6) ──
@@ -226,7 +228,10 @@ def _parse_flow_mod(raw: bytes) -> Optional[Dict[str, Any]]:
     """Parse OFPT_FLOW_MOD → {match, command, priority, actions, ...}."""
     if len(raw) < OFP_HEADER_SIZE + OFP_FLOW_MOD_SIZE0:
         return None
-    buf = raw(cookie, cookie_mask, table_id, command, idle_to, hard_to,priority, buffer_id, out_port, out_group, flags) = struct.unpack_from(OFP_FLOW_MOD_PACK_STR0, buf, OFP_HEADER_SIZE)
+    buf = raw
+    (cookie, cookie_mask, table_id, command, idle_to, hard_to, priority,
+     buffer_id, out_port, out_group, flags) = struct.unpack_from(
+        OFP_FLOW_MOD_PACK_STR0, buf, OFP_HEADER_SIZE)
 
     # ── Parse OFPMatch (OXM) ──
     m_off = OFP_HEADER_SIZE + OFP_FLOW_MOD_SIZE0

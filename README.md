@@ -80,10 +80,10 @@
 10. ✅ 网关日志完善（强制刷新+启动信息记录）
 11. ✅ 场景B工作原理文档（网关处理模式说明）
 
-### React 前端迁移 (v4.5.0新增)
-12. ✅ React 19 + TypeScript 前端 SPA
-13. ✅ Flask API 服务器重构（React 版）
-14. ✅ React Compiler 性能优化
+### Vue 前端 (v4.5.0)
+12. ✅ Vue 3 + Vite 前端 SPA
+13. ✅ Flask API 服务器重构（Vue 版）
+14. ✅ vue-router 路由与 5 个功能页面（Dashboard / Topology / Flows / DeviceIdentity / Apps）
 
 ---
 
@@ -104,7 +104,7 @@
 | 项目版本 | v4.5.0 |
 | 文档索引版本 | v1.2.0 |
 | 最后更新 | 2026-05-19 |
-| 项目路径 | `/home/zhang/桌面/sdn/SDN_IOT/ryu_extend/docx` |
+| 项目路径 | `ryu_extend/docx`（相对仓库根目录） |
 
 ---
 

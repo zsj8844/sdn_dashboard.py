@@ -185,29 +185,39 @@ def check_connectivity_by_flows():
 
 
 def listen_ble_mesh_data():
+    """后台线程：监听 UDP 5005 接收 BLE 数据。
+
+    注意：IoT 网关（gateway/iot_gateway_enhanced.py）也绑定 5005。
+    同一台机器上两者同时运行时只应有一方绑定成功，否则会互相抢包。
+    """
+    import socket
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    # 有意不设置 SO_REUSEADDR：UDP 下它允许多个 socket 绑定同一端口，
+    # 后绑定者会收走全部数据包（网关与面板互相“偷包”），且冲突无法被察觉
     try:
-        import socket
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind(('0.0.0.0', 5005))
-        logger.info("BLE数据监听已启动 (端口5005)")
-        while True:
-            try:
-                data, addr = sock.recvfrom(1024)
-                ble_data = data.decode('utf-8', errors='ignore').strip().split(",")
-                if len(ble_data) == 3:
-                    ble_addr, msg_type, value = ble_data
-                    timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-                    log_entry = f"[{timestamp}] {ble_addr} → {msg_type}：{value}"
-                    GATEWAY_LOG.appendleft(log_entry)
-                    logger.info(f"接收到BLE数据: {log_entry}")
-            except Exception as e:
-                logger.warning(f"BLE数据解析警告: {e}")
-                continue
-    except Exception as e:
-        logger.error(f"BLE监听错误: {e}")
-        time.sleep(5)
-        listen_ble_mesh_data()
+    except OSError as e:
+        sock.close()
+        logger.warning(
+            "BLE数据监听未启动：UDP 5005 已被占用（%s）。"
+            "通常是 IoT 网关正在同一台机器上运行并监听该端口，"
+            "此时面板不会直接接收 BLE 数据。", e)
+        return
+    logger.info("BLE数据监听已启动 (端口5005)")
+    while True:
+        try:
+            data, addr = sock.recvfrom(1024)
+            ble_data = data.decode('utf-8', errors='ignore').strip().split(",")
+            if len(ble_data) == 3:
+                ble_addr, msg_type, value = ble_data
+                timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+                log_entry = f"[{timestamp}] {ble_addr} → {msg_type}：{value}"
+                GATEWAY_LOG.appendleft(log_entry)
+                logger.info(f"接收到BLE数据: {log_entry}")
+        except Exception as e:
+            logger.warning(f"BLE数据解析警告: {e}")
+            continue
 
 
 def get_gateway_logs():

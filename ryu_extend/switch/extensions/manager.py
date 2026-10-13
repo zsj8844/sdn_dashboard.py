@@ -63,11 +63,16 @@ class IoTExtensionManager:
             if len(buf) < 6:
                 break
             field_type = buf[0]
+            # 第2字节语义随字段家族不同：
+            #   旧格式(IoTExtensionField) —— 保留位，恒为 0，字段定长 6 字节
+            #   新格式(BaseField)         —— 总长度(含6字节头部)，字段变长
+            declared_len = buf[1]
+            field_len = declared_len if declared_len >= 6 else 6
             field_class = field_classes.get(field_type)
             if field_class:
                 field = field_class.parse(buf)
                 manager.add_field(field)
-            buf = buf[6:]
+            buf = buf[field_len:]
         
         return manager
     
