@@ -5,9 +5,9 @@ import os
 import sys
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-if parent_dir not in sys.path:
-    sys.path.insert(0, parent_dir)
+switch_dir = os.path.dirname(os.path.dirname(current_dir))
+if switch_dir not in sys.path:
+    sys.path.insert(0, switch_dir)
 sys.path.insert(0, current_dir)
 
 print("="*60)
@@ -16,11 +16,10 @@ print("="*60)
 
 try:
     from extensions.manager import IoTExtensionManager, create_iot_extension
-    from extensions.sensor_field import SensorTypeField
-    from extensions.priority_field import DevicePriorityField
-    from extensions.route_field import RouteSelectField
-    from extensions.app_field import AppDeploymentField
-    from extensions.role_field import RoleSwitchField
+    from extensions import (
+        SensorTypeField, DevicePriorityField, RouteSelectField,
+        AppDeploymentField, RoleSwitchField,
+    )
     
     print("✓ 所有扩展模块导入成功")
     print()
