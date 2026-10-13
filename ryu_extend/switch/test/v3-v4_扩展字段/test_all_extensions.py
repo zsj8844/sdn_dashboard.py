@@ -5,27 +5,22 @@ import os
 import sys
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
-
-# 向上定位包含 extensions 包的 ryu_extend/switch 目录
-switch_dir = current_dir
-while not os.path.isdir(os.path.join(switch_dir, 'extensions')):
-    parent_dir = os.path.dirname(switch_dir)
-    if parent_dir == switch_dir:
-        raise RuntimeError("未找到 extensions 包所在目录")
-    switch_dir = parent_dir
-if switch_dir not in sys.path:
-    sys.path.insert(0, switch_dir)
+parent_dir = os.path.dirname(current_dir)
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+sys.path.insert(0, current_dir)
 
 print("="*60)
 print("测试所有扩展字段")
 print("="*60)
 
 try:
-    from extensions import (
-        IoTExtensionManager, create_iot_extension,
-        SensorTypeField, DevicePriorityField, RouteSelectField,
-        AppDeploymentField, RoleSwitchField,
-    )
+    from extensions.manager import IoTExtensionManager, create_iot_extension
+    from extensions.sensor_field import SensorTypeField
+    from extensions.priority_field import DevicePriorityField
+    from extensions.route_field import RouteSelectField
+    from extensions.app_field import AppDeploymentField
+    from extensions.role_field import RoleSwitchField
     
     print("✓ 所有扩展模块导入成功")
     print()

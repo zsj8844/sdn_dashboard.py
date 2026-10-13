@@ -5,9 +5,9 @@
 import sys
 import os
 
-# 添加上级目录到Python路径
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, parent_dir)
+# 添加到 ryu_extend/switch 的Python路径
+switch_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, switch_dir)
 
 print("=== OpenFlow 扩展字段功能测试 ===\n")
 

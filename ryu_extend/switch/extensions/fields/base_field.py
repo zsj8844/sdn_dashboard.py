@@ -40,10 +40,10 @@ class BaseField(ABC):
     
     def serialize(self) -> bytes:
         """序列化字段为二进制数据"""
-        # 格式: 类型(1B) + 总长度(1B) + 保留(4B) + 数据
+        # 格式: 类型(1B) + 长度(1B) + 保留(2B) + 数据
         data = self._serialize_data()
         length = len(data) + 6  # 6字节头部
-        return struct.pack('!BBI', self.FIELD_TYPE, length, 0) + data
+        return struct.pack('!BBH', self.FIELD_TYPE, length, 0) + data
     
     @abstractmethod
     def _serialize_data(self) -> bytes:
