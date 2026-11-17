@@ -1,5 +1,6 @@
 """BLE Mesh SDN 控制器 — 基于 Ryu OpenFlow 1.3"""
 
+import os
 import time
 from collections import defaultdict
 
@@ -22,7 +23,7 @@ from ryu.lib import hub
 # ── 子模块 ──
 from Other_Modules import (
     setup_logging,
-    LLDPManager, ControlHTTPServer,
+    LLDPManager, ControlHTTPServer, UDPExtensionReceiver,
     WebReporter, StatsCollector, FlowManager,
     IoTProcessor, DeviceManager, TopologyManager,
     PacketProcessor, resolve_out_port,
@@ -129,6 +130,12 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
         # IoT 处理器
         self.iot_processor = IoTProcessor(self.extension_enabled, self.web_panel_url)
 
+        # 网关属性上报接收（UDP 6650 + Unix socket 备用）
+        self.ext_receiver = UDPExtensionReceiver(
+            unix_path=os.environ.get('SDN_EXT_SOCKET',
+                                     '/tmp/sdn_iot_ext.sock'),
+            on_message=self._on_iot_extension)
+
         # 拓扑管理
         self.topo_mgr = TopologyManager(self.topology, config_manager, self.reporter)
 
@@ -154,6 +161,9 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
             'logger': self.logger,
         }
         self.packet_processor = PacketProcessor(shared_state, proc_modules)
+
+        # 在 PacketProcessor 就绪后再开始接收网关上报，避免回调早于初始化。
+        self.ext_receiver.start()
 
     # ═══════════════════ 交换机连接 ═══════════════════
 
@@ -186,6 +196,11 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
     def process_iot_extension(self, ble_type, ble_value):
         """→ IoTProcessor"""
         return self.iot_processor.process(ble_type, ble_value)
+
+    def _on_iot_extension(self, message):
+        """网关上报的 IoT 属性 → 下发扩展流 + Web 面板"""
+        self.packet_processor.install_extension_flow(message)
+        self.reporter.report_iot_extension(message)
 
     # ═══════════════════ 统计 → stats_collector ═══════════════════
 

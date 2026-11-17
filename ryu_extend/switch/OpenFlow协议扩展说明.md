@@ -172,7 +172,7 @@ python3 test/v3-v4_扩展字段/analyze_packet.py
 - 网关（iot3）开启 `net.ipv4.ip_forward`，不使用 iptables NAT
 - 交换机 s1/s2 的转发由控制器预装 IPv4 流表完成
 - 网关应用层监听 5005：解析 BLE 数据、编码 Experimenter 字段，并把原始数据转发到 h1/h2
-- 扩展信息尝试发往 `127.0.0.1:6650`，但控制器未监听该端口，且 iot3 命名空间内 `127.0.0.1` 不是宿主机，因此不会到达控制器
+- 扩展信息发往 `192.168.1.1:6650`（s1 网桥 IP）或 Unix socket `/tmp/sdn_iot_ext.sock`；控制器内置 `UDPExtensionReceiver` 同时监听两者，网关默认优先 Unix socket；本地 UDP/Unix 收发已验证，Mininet 内跨命名空间路径待联调
 - Experimenter 动作仅注入到 Packet-In 路径下发的流表中，受主动流表优先级遮蔽
 
 ### 数据流向

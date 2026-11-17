@@ -77,7 +77,9 @@ class ControlHTTPServer:
                 match = parser.OFPMatch(eth_type=0x0800, ipv4_dst=ip_dst)
                 actions = [parser.OFPActionOutput(out_port)]
                 try:
-                    self.flow_manager.add_flow(datapath, priority=100, match=match,
+                    # 主动流表保持较低优先级：带 Experimenter 的扩展流
+                    # (priority 120-150) 需要能覆盖它，否则扩展流永远不会命中。
+                    self.flow_manager.add_flow(datapath, priority=50, match=match,
                                                actions=actions, idle_timeout=0)
                     logger.info("s%d 主动流表: %s → port%d (%s)", dpid, ip_dst, out_port, desc)
                     total += 1

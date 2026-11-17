@@ -156,6 +156,63 @@ class PacketProcessor:
 
         return result
 
+    # ═══════════════════ 网关属性 → 扩展流 ═══════════════════
+
+    def install_extension_flow(self, message):
+        """把网关上报的 IoT 属性直接下发成带 Experimenter 的流表。
+
+        主动流表会把 IPv4 包挡在控制器外面，导致 _parse_ble() 收不到 BLE
+        数据；网关通过 UDP/Unix socket 上报属性后，控制器直接在这里装流，
+        不再依赖 Packet-In。
+        """
+        target_ip = message.get('target_ip')
+        if not target_ip:
+            return
+
+        try:
+            from extensions.constants import EXPERIMENTER_ID
+            from extensions.manager import create_iot_extension
+            from extensions.priority import select_route
+
+            priority = int(message.get('device_priority', 2))
+            sensor_type = message.get('sensor_type', 'temp')
+            route = message.get('route_select') or select_route(priority)
+
+            # 当前拓扑没有真正的备用链路，route_b 的端口映射也不正确；
+            # 先按 route_a 下发，避免把流量送到错误主机。
+            if route == 'route_b':
+                route = 'route_a'
+
+            data = create_iot_extension(
+                sensor_type=sensor_type,
+                device_priority=priority,
+                route_select=route,
+            ).serialize_fields()
+
+            for dpid, datapath in list(self.topology.get('switches', {}).items()):
+                out_port, log_msg = self.resolve_route(
+                    dpid, None, target_ip, self.mac_to_port, route)
+                self.logger.info("扩展流路由: %s", log_msg)
+                if out_port is None:
+                    continue
+
+                parser = datapath.ofproto_parser
+                match = parser.OFPMatch(eth_type=0x0800, ipv4_dst=target_ip)
+                actions = [
+                    parser.OFPActionOutput(out_port),
+                    parser.OFPActionExperimenterUnknown(
+                        experimenter=EXPERIMENTER_ID, data=data),
+                ]
+                flow_priority = 100 + priority * 10
+                self.flow_mgr.add_flow(datapath, flow_priority, match, actions,
+                                       idle_timeout=60)
+                self.logger.info(
+                    "网关属性下发扩展流: s%s %s → port%s priority=%d (%d bytes)",
+                    dpid, target_ip, out_port, flow_priority, len(data))
+
+        except Exception as e:
+            self.logger.error("下发扩展流失败: %s", e)
+
     # ═══════════════════ 转发 + 流表 ═══════════════════
 
     def _forward(self, datapath, dpid, eth, ip, msg, in_port, parser,
@@ -202,7 +259,8 @@ class PacketProcessor:
                 actions.append(parser.OFPActionExperimenterUnknown(
                     experimenter=EXPERIMENTER_ID, data=ext_data))
                 self.logger.info("Experimenter字段已嵌入流表 (%d bytes)", len(ext_data))
-            priority = max(ext_priority * 10, 10)
+            # 必须高于主动流表 (priority=50)，否则扩展流永远不会被命中。
+            priority = 100 + ext_priority * 10
             self.flow_mgr.add_flow(datapath, priority, match, actions, idle_timeout=60)
             self.logger.info(f"s{dpid} 流表: priority={priority} → port{out_port}")
 

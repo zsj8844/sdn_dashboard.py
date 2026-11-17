@@ -36,33 +36,15 @@ class IoTProcessor:
                 logger.warning("扩展功能未启用，跳过处理")
                 return {'data': None, 'priority': 2, 'sensor_type': 'temp', 'route': 'route_a'}
 
-            # 传感器类型映射
-            from extensions.constants import SENSOR_TYPES
-            raw_type = ble_type.lower()
-            if raw_type == 'temperature':
-                raw_type = 'temp'
-            sensor_type = raw_type if raw_type in SENSOR_TYPES else 'temp'
-            logger.info(f"映射后的传感器类型: {sensor_type}")
-
-            # 优先级（基于数值阈值）
-            try:
-                value_float = float(ble_value)
-                if value_float > 80:
-                    priority = 5
-                elif value_float > 50:
-                    priority = 4
-                elif value_float > 30:
-                    priority = 3
-                else:
-                    priority = 2
-                logger.info(f"数值解析成功: {value_float}, 优先级: {priority}")
-            except ValueError:
-                priority = 2
-                logger.warning(f"数值解析失败，使用默认优先级: {priority}")
-
-            # 路由：紧急/关键走备用路径
-            route = 'route_b' if priority >= 4 else 'route_a'
-            logger.info(f"路由选择: {route} (priority={priority})")
+            # 类型归一 + 优先级 + 路由：与网关共用 extensions.priority
+            from extensions.priority import (
+                calculate_priority, normalize_sensor_type, select_route,
+            )
+            sensor_type = normalize_sensor_type(ble_type)
+            priority = calculate_priority(sensor_type, ble_value)
+            route = select_route(priority)
+            logger.info("类型=%s, 优先级=%d, 路由=%s",
+                        sensor_type, priority, route)
 
             # 创建扩展字段
             from extensions.manager import create_iot_extension

@@ -17,13 +17,24 @@ from threading import Thread
 import sys
 import os
 
+# 控制器地址：默认走 s1 的网桥 IP，iot3 命名空间内也能到达宿主机
+DEFAULT_CONTROLLER_IP = os.environ.get('SDN_CONTROLLER_IP', '192.168.1.1')
+# Unix socket 备用通道（跨 Mininet 命名空间稳定）
+DEFAULT_EXT_SOCKET = os.environ.get('SDN_EXT_SOCKET', '/tmp/sdn_iot_ext.sock')
+
 sys.path.append(os.path.join(os.path.dirname(__file__), '../ryu_extend/switch'))
 try:
     from extensions.manager import IoTExtensionManager, create_iot_extension
     from extensions.constants import SENSOR_TYPES, PRIORITY_LEVELS
+    from extensions.priority import (
+        calculate_priority as _shared_calculate_priority,
+        select_route as _shared_select_route,
+    )
     EXTENSIONS_AVAILABLE = True
 except ImportError:
     EXTENSIONS_AVAILABLE = False
+    _shared_calculate_priority = None
+    _shared_select_route = None
     print("警告: 无法导入extensions模块，将使用基础模式")
 
 class IoTGatewayEnhanced:
@@ -34,7 +45,7 @@ class IoTGatewayEnhanced:
         gateway_ip='192.168.1.12',
         listen_port=5005,
         target_port=5005,
-        controller_ip='127.0.0.1',
+        controller_ip=DEFAULT_CONTROLLER_IP,
         controller_port=6650,
         use_udp=True
     ):
@@ -105,20 +116,25 @@ class IoTGatewayEnhanced:
         try:
             sensor_type = data_type
             device_priority = self._calculate_priority(data_type, data_value)
-            
+            route_select = (
+                _shared_select_route(device_priority)
+                if _shared_select_route is not None else 'route_a'
+            )
+
             ext_mgr = create_iot_extension(
                 sensor_type=sensor_type,
                 device_priority=device_priority,
-                route_select='route_a'
+                route_select=route_select
             )
-            
+
             serialized_data = ext_mgr.serialize_to_experimenter()
-            
+
             extension_info = {
                 'ble_addr': ble_addr,
                 'sensor_type': sensor_type,
                 'data_value': data_value,
                 'device_priority': device_priority,
+                'route_select': route_select,
                 'timestamp': time.time(),
                 'extension_data': serialized_data.hex()
             }
@@ -130,9 +146,15 @@ class IoTGatewayEnhanced:
             return None
     
     def _calculate_priority(self, data_type, data_value):
-        """根据数据类型和值计算优先级"""
+        """根据数据类型和值计算优先级（与控制器共用同一份逻辑）"""
+        if _shared_calculate_priority is not None:
+            try:
+                return _shared_calculate_priority(data_type, data_value)
+            except Exception as e:
+                print(f"  统一优先级计算失败，使用兜底逻辑: {e}")
+
         base_priority = 2
-        
+
         if data_type == 'temp':
             try:
                 temp = float(data_value)
@@ -150,16 +172,41 @@ class IoTGatewayEnhanced:
         return base_priority
     
     def send_to_controller(self, extension_info):
-        """发送扩展信息到控制器"""
+        """发送扩展信息到控制器。
+
+        优先 Unix socket（跨 Mininet 命名空间稳定），否则退回 UDP。
+        可用 SDN_EXT_TRANSPORT=unix|udp|auto 强制指定。
+        """
         try:
             msg_data = json.dumps(extension_info).encode('utf-8')
-            
-            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            sock.sendto(msg_data, (self.controller_ip, self.controller_port))
-            sock.close()
-            
-            print(f"  已发送扩展信息到控制器: {extension_info['ble_addr']} - {extension_info['sensor_type']}")
-            
+            socket_path = os.environ.get('SDN_EXT_SOCKET', DEFAULT_EXT_SOCKET)
+            transport = os.environ.get('SDN_EXT_TRANSPORT', 'auto').lower()
+
+            sent_via = None
+
+            if transport in ('auto', 'unix') and os.path.exists(socket_path):
+                try:
+                    sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+                    sock.sendto(msg_data, socket_path)
+                    sock.close()
+                    sent_via = f"unix://{socket_path}"
+                except OSError as exc:
+                    if transport == 'unix':
+                        raise
+                    print(f"  Unix socket 发送失败，回退 UDP: {exc}")
+
+            if sent_via is None and transport in ('auto', 'udp'):
+                sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                sock.sendto(msg_data, (self.controller_ip, self.controller_port))
+                sock.close()
+                sent_via = f"{self.controller_ip}:{self.controller_port}"
+
+            if sent_via:
+                print(f"  已发送扩展信息到控制器 ({sent_via}): "
+                      f"{extension_info['ble_addr']} - {extension_info['sensor_type']}")
+            else:
+                print("  未找到可用的控制器通道，扩展信息未发送")
+
         except Exception as e:
             print(f"  发送到控制器失败: {e}")
     
@@ -201,17 +248,18 @@ class IoTGatewayEnhanced:
                 self._log_to_file(parse_msg)
                 
                 extension_info = self.encode_openflow_extension(ble_addr, data_type, data_value)
-                if extension_info:
-                    print(f"  OpenFlow扩展编码成功: 优先级={extension_info['device_priority']}")
-                    self.send_to_controller(extension_info)
-                
                 if ble_addr in ['aa:bb:cc:dd:ee:01', 'aa:bb:cc:dd:ee:04']:
                     target_ip = '192.168.1.20'
                 elif ble_addr == 'aa:bb:cc:dd:ee:02':
                     target_ip = '192.168.1.21'
                 else:
                     target_ip = '192.168.1.20'
-                
+
+                if extension_info:
+                    extension_info['target_ip'] = target_ip
+                    print(f"  OpenFlow扩展编码成功: 优先级={extension_info['device_priority']}")
+                    self.send_to_controller(extension_info)
+
                 self.forward_data(received_data, target_ip)
                 fwd_msg = f"  数据已转发到: {target_ip}:{self.target_port}"
                 print(fwd_msg)
@@ -263,6 +311,7 @@ class IoTGatewayEnhanced:
         
         extension_info = self.encode_openflow_extension(ble_addr, sensor_type, str(value))
         if extension_info:
+            extension_info['target_ip'] = target_ip
             self.send_to_controller(extension_info)
         
         self.forward_data(packet_data, target_ip)
@@ -375,7 +424,7 @@ def main():
         gateway_ip='192.168.1.12',
         listen_port=5005,
         target_port=5005,
-        controller_ip='127.0.0.1',
+        controller_ip=DEFAULT_CONTROLLER_IP,
         controller_port=6650,
         use_udp=True
     )
