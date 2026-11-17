@@ -22,7 +22,7 @@ CTL_PORT = 6634
 DASH_PORT = 5000
 VUE_PORT = 5173
 GW_PORT = 5005
-EXT_PORT = 6650
+EXT_PORT = 6650  # 控制器内置的扩展信息接收端口；网关只发送，不监听
 
 VUE_DIR = os.path.join(PROJECT_DIR, "templates/sdn_dashboard_vue/sdn_dashboard_view")
 
@@ -100,7 +100,8 @@ def status():
     print(f"控制器    ({CTL_PORT}端口): {check('控制器', CTL_PORT)}")
     print(f"Web面板   ({DASH_PORT}端口): {check('Web面板', DASH_PORT)}")
     print(f"Vue前端   ({VUE_PORT}端口): {check('Vue', VUE_PORT)}")
-    print(f"增强版网关({GW_PORT}/{EXT_PORT}端口): {check('网关', GW_PORT)}")
+    print(f"增强版网关({GW_PORT}端口): {check('网关', GW_PORT)}")
+    print(f"扩展接收  ({EXT_PORT}端口): {check('扩展接收', EXT_PORT)}")
 
     mn = subprocess.run(["pgrep", "-f", "mininet"],
                         capture_output=True, text=True).stdout.strip()
@@ -164,7 +165,7 @@ def start_topology():
 
 def start_gateway():
     info("启动增强版IoT网关...")
-    kill_port(EXT_PORT)
+    # 6650 现在由控制器内置接收器监听，不能再在这里杀掉
     kill_port(GW_PORT)
     p = run([PYTHON3, "../gateway/iot_gateway_enhanced.py"],
             bg=True, log=GW_LOG)

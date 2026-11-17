@@ -10,11 +10,12 @@ IoT 数据从 iot3 网关进入 SDN 域，控制器完成主机发现、路由�
 | OpenFlow 1.3 流表下发 / 统计采集 | ✅ 可用 |
 | LLDP 拓扑发现、主机发现、拓扑可视化 | ✅ 可用 |
 | 设备身份配置（IP → 设备信息）热加载 | ✅ 可用 |
-| 流表增删改查 | ✅ 增/删/改可用；`FlowManager.get_flows()` 有缺陷 |
-| Experimenter 字段编解码与流表注入 | ⚠️ 编码可用，数据面不生效（被主动流表遮蔽） |
-| 真实 BLE Mesh 接入 | ❌ 网关没有 BLE 协议栈 |
+| 网关属性上报（UDP 6650 / Unix socket） | ✅ 控制器接收器已接入；本地 UDP/Unix 已验证，Mininet 待联调 |
+| 流表增删改查 | ✅ 增/删/改可用；本地缓存已同步 |
+| Experimenter 字段编解码与流表注入 | ⚠️ 编码/注入/补丁 OVS 验证通过；标准 OVS 拒收自定义 vendor，需应用 `Ovs_extend` 补丁 |
+| 真实 BLE Mesh 接入 | ❌ 网关没有 BLE 协议栈；宿主机 bleak 扫描器已提供（需硬件） |
 | 边缘应用下发 / 设备角色切换 | ❌ 面板内存模型，无设备侧执行 |
-| 网关侧 OpenFlow 协议客户端 | ❌ 已实现但未接入 |
+| 网关侧 OpenFlow 协议客户端 | ❌ 已实现但未接入；7 项协议格式缺陷已修复并通过 Ryu 交叉验证 |
 | OVS 内核 datapath 下沉 | ❌ 仍为 netdev 用户态 |
 
 未完成项、根因与实施路线见 [问题.md](问题.md)。
@@ -25,6 +26,8 @@ IoT 数据从 iot3 网关进入 SDN 域，控制器完成主机发现、路由�
 SDN_IOT/
 ├── gateway/                     # IoT 网关（UDP 收数、BLE 编码、IP 转发）
 │   ├── iot_gateway_enhanced.py
+│   ├── ble_injector.py          # 无硬件 BLE 数据注入（模拟 N 个设备）
+│   ├── ble_scanner.py           # 宿主机 BLE 扫描（bleak，可选）
 │   ├── iot_gateway_simulator.py # 旧版模拟器，未被引用
 │   └── ofproto_client.py        # switch 端 OpenFlow 1.3 客户端（未接入）
 ├── ryu_extend/
@@ -70,6 +73,19 @@ python3 ryu_extend/manage.py start
 # 拓扑需要单独启动（manage.py start 不包含拓扑）
 cd ryu_extend
 sudo python3 topology/iot_sdn_topology.py
+
+# 另开终端，回到项目根目录
+cd ..
+
+# 无硬件验证：模拟 3 个 BLE 设备，数据发往 iot3 网关的 5005
+python3 gateway/ble_injector.py --target 192.168.1.12 --port 5005
+
+# 有 BLE 硬件时：宿主机扫描真实广播（需 pip install bleak）
+python3 gateway/ble_scanner.py --target 192.168.1.12 --port 5005 --verbose
+
+# 本机链路测试（不需要 root、Mininet 或 BLE 硬件）
+python3 ryu_extend/switch/test/v4_全链路/test_extension_chain.py
+python3 ryu_extend/switch/test/v4_全链路/test_ble_chain_e2e.py
 ```
 
 访问：
@@ -86,6 +102,7 @@ sudo python3 topology/iot_sdn_topology.py
 | 5000 | Flask API / 面板 |
 | 5173 | Vue 开发服务器 |
 | 5005 | IoT 数据 UDP 端口 |
+| 6650 | 网关属性上报 UDP（控制器内置接收器） |
 | 16634 | 控制器内部控制 HTTP（仅 127.0.0.1） |
 
 ## 版本

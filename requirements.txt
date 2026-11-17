@@ -19,6 +19,9 @@ flask-cors
 scapy
 requests
 
+# 可选：真实 BLE 扫描（宿主机侧，bleak 通过 BlueZ D-Bus，不依赖 AF_BLUETOOTH）
+bleak>=0.22
+
 # 开发工具
 pytest
 flake8

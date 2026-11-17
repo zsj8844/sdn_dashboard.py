@@ -4,4 +4,5 @@ from .flow_manager import FlowManager
 from .stats_collector import StatsCollector
 from .web_reporter import WebReporter
 from .control_http import ControlHTTPServer
+from .ext_receiver import UDPExtensionReceiver
 from .logging_setup import setup_logging

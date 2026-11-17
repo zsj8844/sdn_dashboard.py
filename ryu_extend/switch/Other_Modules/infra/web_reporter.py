@@ -49,3 +49,11 @@ class WebReporter:
             }, timeout=1)
         except Exception:
             logger.debug("上报统计数据失败")
+
+    def report_iot_extension(self, data):
+        """上报网关编码的 IoT 扩展信息"""
+        try:
+            requests.post(f"{self.url}/api/iot-extension",
+                          json=data, timeout=1)
+        except Exception:
+            logger.debug("上报IoT扩展信息失败")
