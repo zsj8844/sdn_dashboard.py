@@ -4,10 +4,25 @@ Packet-In 处理器
 从 ble_switch_13.py 抽取而来，降低主控制器文件复杂度。
 """
 
+import os
 import requests
 import logging
 from ryu.ofproto import ofproto_v1_3
 from ryu.lib.packet import packet as pkt_lib, ethernet, ipv4, udp, arp as arp_pkt
+
+from .infra.flow_manager import LOW_PRIO_METER_ID
+from .topology.route_engine import effective_route
+
+# 只有真实 OVS 交换机支持 OF meter；网关是自研 switch 端，不挂 meter。
+METER_ENABLED = os.environ.get('SDN_QOS_METER', '1') not in ('0', 'false', 'no')
+METERED_DPIDS = (1, 2)
+
+
+def _meter_for(dpid, priority):
+    """低优先级业务流限速，高优先级不限速——让优先级真正影响转发。"""
+    if not METER_ENABLED or dpid not in METERED_DPIDS:
+        return None
+    return LOW_PRIO_METER_ID if priority <= 3 else None
 
 
 class PacketProcessor:
@@ -176,12 +191,11 @@ class PacketProcessor:
 
             priority = int(message.get('device_priority', 2))
             sensor_type = message.get('sensor_type', 'temp')
-            route = message.get('route_select') or select_route(priority)
-
-            # 当前拓扑没有真正的备用链路，route_b 的端口映射也不正确；
-            # 先按 route_a 下发，避免把流量送到错误主机。
-            if route == 'route_b':
-                route = 'route_a'
+            requested_route = message.get('route_select') or select_route(priority)
+            route = effective_route(requested_route)
+            if requested_route != route:
+                self.logger.info("route_b 无备用链路，按 route_a 下发（%s）",
+                                 message.get('ble_addr', '-'))
 
             data = create_iot_extension(
                 sensor_type=sensor_type,
@@ -204,11 +218,13 @@ class PacketProcessor:
                         experimenter=EXPERIMENTER_ID, data=data),
                 ]
                 flow_priority = 100 + priority * 10
+                meter_id = _meter_for(dpid, priority)
                 self.flow_mgr.add_flow(datapath, flow_priority, match, actions,
-                                       idle_timeout=60)
+                                       idle_timeout=60, meter_id=meter_id)
                 self.logger.info(
-                    "网关属性下发扩展流: s%s %s → port%s priority=%d (%d bytes)",
-                    dpid, target_ip, out_port, flow_priority, len(data))
+                    "网关属性下发扩展流: s%s %s → port%s priority=%d meter=%s (%d bytes)",
+                    dpid, target_ip, out_port, flow_priority,
+                    meter_id if meter_id is not None else '无', len(data))
 
         except Exception as e:
             self.logger.error("下发扩展流失败: %s", e)
@@ -261,8 +277,12 @@ class PacketProcessor:
                 self.logger.info("Experimenter字段已嵌入流表 (%d bytes)", len(ext_data))
             # 必须高于主动流表 (priority=50)，否则扩展流永远不会被命中。
             priority = 100 + ext_priority * 10
-            self.flow_mgr.add_flow(datapath, priority, match, actions, idle_timeout=60)
-            self.logger.info(f"s{dpid} 流表: priority={priority} → port{out_port}")
+            meter_id = _meter_for(dpid, ext_priority) if ext_data else None
+            self.flow_mgr.add_flow(datapath, priority, match, actions,
+                                   idle_timeout=60, meter_id=meter_id)
+            self.logger.info("s%d 流表: priority=%d meter=%s → port%d",
+                             dpid, priority,
+                             meter_id if meter_id is not None else '无', out_port)
 
     # ═══════════════════ PacketOut ═══════════════════
 

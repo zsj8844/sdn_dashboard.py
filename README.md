@@ -12,10 +12,13 @@ IoT 数据从 iot3 网关进入 SDN 域，控制器完成主机发现、路由�
 | 设备身份配置（IP → 设备信息）热加载 | ✅ 可用 |
 | 网关属性上报（UDP 6650 / Unix socket） | ✅ 控制器接收器已接入；本地 UDP/Unix 已验证，Mininet 待联调 |
 | 流表增删改查 | ✅ 增/删/改可用；本地缓存已同步 |
+| 流表去重与重连失效 | ✅ 相同 FlowMod 重复下发会被跳过；交换机重连清空本地缓存 |
+| route_b 备用链路 | ⚠️ 拓扑中没有第二条物理链路，route_b 降级为 route_a 并打日志标注（不再假装切换） |
+| 业务优先级影响转发（meter） | ✅ 优先级 ≤3 的扩展流走 64 kbps meter（`SDN_LOW_PRIO_METER_KBPS` 可调，`SDN_QOS_METER=0` 关闭）；本地单测通过，真实 OVS 待 Mininet 联调 |
 | Experimenter 字段编解码与流表注入 | ⚠️ 编码/注入/补丁 OVS 验证通过；标准 OVS 拒收自定义 vendor，需应用 `Ovs_extend` 补丁 |
 | 真实 BLE Mesh 接入 | ❌ 网关没有 BLE 协议栈；宿主机 bleak 扫描器已提供（需硬件） |
 | 边缘应用下发 / 设备角色切换 | ❌ 面板内存模型，无设备侧执行 |
-| 网关侧 OpenFlow 协议客户端 | ❌ 已实现但未接入；7 项协议格式缺陷已修复并通过 Ryu 交叉验证 |
+| 网关侧 OpenFlow 协议客户端 | ✅ 已接入网关：dpid=3 完成 HELLO/FEATURES 握手，PacketIn 上报、FlowMod 写入本地流表；已对真实控制器本地验证，Mininet 待联调 |
 | OVS 内核 datapath 下沉 | ❌ 仍为 netdev 用户态 |
 
 未完成项、根因与实施路线见 [问题.md](问题.md)。
@@ -29,7 +32,8 @@ SDN_IOT/
 │   ├── ble_injector.py          # 无硬件 BLE 数据注入（模拟 N 个设备）
 │   ├── ble_scanner.py           # 宿主机 BLE 扫描（bleak，可选）
 │   ├── iot_gateway_simulator.py # 旧版模拟器，未被引用
-│   └── ofproto_client.py        # switch 端 OpenFlow 1.3 客户端（未接入）
+│   ├── ofproto_client.py        # switch 端 OpenFlow 1.3 客户端（已接入）
+│   └── of_gateway_agent.py      # 网关 OF 代理：握手/重连、PacketIn、本地流表
 ├── ryu_extend/
 │   ├── switch/
 │   │   ├── ble_switch_13.py     # 主控制器（装配层）
@@ -86,6 +90,8 @@ python3 gateway/ble_scanner.py --target 192.168.1.12 --port 5005 --verbose
 # 本机链路测试（不需要 root、Mininet 或 BLE 硬件）
 python3 ryu_extend/switch/test/v4_全链路/test_extension_chain.py
 python3 ryu_extend/switch/test/v4_全链路/test_ble_chain_e2e.py
+python3 gateway/test_ofproto_crosscheck.py
+python3 gateway/test_gateway_of_agent.py
 ```
 
 访问：
