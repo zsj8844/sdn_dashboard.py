@@ -40,8 +40,8 @@ OFP_VERSION          = 0x04
 
 OFP_SWITCH_FEATURES_PACK_STR = "!QIBB2xII"  # datapath_id n_buffers n_tables aux_id pad caps reserved
 OFP_PORT_PACK_STR  = "!I4x6s2x16sIIIIIIII"
-OFP_MATCH_PACK_STR = "!HHBBBB"
-OFP_MATCH_SIZE     = 8
+OFP_MATCH_PACK_STR = "!HH"     # OF 1.3: type + length (4-byte header)
+OFP_MATCH_HEADER   = 4
 OFP_PACKET_IN_PACK_STR = "!IHBBQ"          # buffer_id total_len reason table_id cookie
 OFP_FLOW_MOD_PACK_STR0 = "!QQBBHHHIIIH2x"  # OF 1.3 FlowMod body before match
 OFP_FLOW_MOD_SIZE0     = 40
@@ -73,11 +73,11 @@ def _oxm_tlv(oxm_class: int, field: int, has_mask: bool, length: int) -> bytes:
     return struct.pack("!I", v)
 
 # 构建 OFPMT_OXM match bytes (for PacketIn)
-# [8字节Match头] + [4字节in_port标签头] + [4字节in_port值] + [4字节eth_type标签头] + [2字节eth_type值]
-# 这是匹配字段（OXM Match Fields）—— 每一个值都必须带标签头
+# OF 1.3 的 match 头只有 4 字节：[type(2)] + [length(2)]
+# length = 4 + OXM 字段长度，不包含尾部补齐；整个 match 再补到 8 字节对齐。
 def _build_match(in_port: Optional[int] = None,
                  eth_type: Optional[int] = None) -> bytes:
-    """Build OFPMT_OXM match bytes (for PacketIn)."""
+    """Build an OF 1.3 OFPMT_OXM match, padded to 8-byte alignment."""
     oxm = bytearray()
     if in_port is not None:
         oxm += _oxm_tlv(OFPXMC_OPENFLOW_BASIC, OXM_OFB_IN_PORT, False, 4)
@@ -85,9 +85,10 @@ def _build_match(in_port: Optional[int] = None,
     if eth_type is not None:
         oxm += _oxm_tlv(OFPXMC_OPENFLOW_BASIC, OXM_OFB_ETH_TYPE, False, 2)
         oxm += struct.pack("!H", eth_type)
-    hdr = struct.pack(OFP_MATCH_PACK_STR, OFPMT_OXM,
-                      OFP_MATCH_SIZE + len(oxm), 0, 0, 0, 0)
-    return hdr + bytes(oxm)
+    length = OFP_MATCH_HEADER + len(oxm)
+    match = struct.pack(OFP_MATCH_PACK_STR, OFPMT_OXM, length) + bytes(oxm)
+    match += b"\x00" * ((8 - len(match) % 8) % 8)
+    return match
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -180,9 +181,9 @@ class OFMessageBuilder:
         # PacketIn body (16 bytes after header)
         pi_hdr = struct.pack(OFP_PACKET_IN_PACK_STR,
                              buffer_id, len(frame), reason, 0, 0)
-        # Match (with in_port + eth_type OXM)
+        # Match (with in_port + eth_type OXM), already padded to 8 bytes.
         match = _build_match(in_port=in_port, eth_type=0x0800)
-        # 2-byte pad → 8-byte alignment, then frame data
+        # PacketIn 在 match 之后还有 2 字节 pad，然后才是帧数据。
         body = pi_hdr + match + b"\x00\x00" + frame
         return cls._header(ofproto.OFPT_PACKET_IN, body)
 
@@ -195,6 +196,13 @@ class OFMessageBuilder:
     @classmethod
     def barrier_reply(cls, xid: int = 0) -> bytes:
         return cls._header(ofproto.OFPT_BARRIER_REPLY, b"", xid=xid)
+
+    # ── OFPT_MULTIPART_REPLY / OFPMP_PORT_DESC (19/13) ──
+    @classmethod
+    def multipart_port_desc_reply(cls, ports_bin: bytes, xid: int = 0) -> bytes:
+        """Reply to an OFPMP_PORT_DESC multipart request."""
+        body = struct.pack("!HH4x", ofproto.OFPMP_PORT_DESC, 0) + ports_bin
+        return cls._header(ofproto.OFPT_MULTIPART_REPLY, body, xid=xid)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -270,12 +278,13 @@ def _parse_flow_mod(raw: bytes) -> Optional[Dict[str, Any]]:
     inst_off = OFP_HEADER_SIZE + OFP_FLOW_MOD_SIZE0 + ((m_len + 7) // 8) * 8
     actions: List[Dict[str, Any]] = []
     msg_end = len(buf)
-    while inst_off + 4 <= msg_end:
+    while inst_off + 8 <= msg_end:
         i_type, i_len = struct.unpack_from("!HH", buf, inst_off)
-        if i_len < 4 or inst_off + i_len > msg_end:
+        # OF 1.3 instruction header: type(2) + len(2) + pad(4) = 8 bytes.
+        if i_len < 8 or inst_off + i_len > msg_end:
             break
         if i_type in (ofproto.OFPIT_APPLY_ACTIONS, ofproto.OFPIT_WRITE_ACTIONS):
-            actions += _parse_actions(buf, inst_off + 4, i_len - 4)
+            actions += _parse_actions(buf, inst_off + 8, i_len - 8)
         inst_off += i_len
 
     return {
@@ -570,11 +579,30 @@ class OF13Client:
         elif msg_type == ofproto.OFPT_BARRIER_REQUEST:
             self._send_raw(OFMessageBuilder.barrier_reply(xid=xid))
 
+        elif msg_type == ofproto.OFPT_MULTIPART_REQUEST:
+            self._handle_multipart_request(xid, raw)
+
         elif msg_type == ofproto.OFPT_EXPERIMENTER:
             logger.debug("OFPT_EXPERIMENTER received (len=%d)", len(raw))
 
         else:
             logger.debug("Unhandled OF msg type=%d len=%d", msg_type, len(raw))
+
+    def _handle_multipart_request(self, xid: int, raw: bytes) -> None:
+        """Reply to multipart requests (currently PortDesc only)."""
+        if len(raw) < OFP_HEADER_SIZE + 8:
+            return
+        mp_type, _flags = struct.unpack_from("!HH", raw, OFP_HEADER_SIZE)
+        if mp_type == ofproto.OFPMP_PORT_DESC:
+            ports = b"".join(
+                OFMessageBuilder.port_desc(i, self.hw_addr)
+                for i in range(1, self.n_ports + 1))
+            self._send_raw(OFMessageBuilder.multipart_port_desc_reply(
+                ports, xid=xid))
+            logger.debug("Multipart PortDesc reply sent (%d ports)",
+                         self.n_ports)
+        else:
+            logger.debug("Unhandled multipart request type=%d", mp_type)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -765,11 +793,12 @@ def _match_subset(candidate: Dict[str, Any], pattern: Dict[str, Any]) -> bool:
     """检查 *candidate* 是否匹配 *pattern*.
 
     - pattern 中值为 None 或不存在的 key → 通配, 匹配任意值
+    - 空 pattern 视为 table-miss，匹配所有包
     - candidate 中缺少 pattern 要求的 key → 不匹配
     - 所有存在的 key 必须相等
     """
     if not pattern:
-        return False       # 空 match 不匹配任何包（保护性默认）
+        return True        # 空 match = table-miss，匹配所有包
     for k, pat_val in pattern.items():
         cand_val = candidate.get(k)
         if cand_val == pat_val:
