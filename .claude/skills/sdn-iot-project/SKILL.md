@@ -10,7 +10,7 @@ description: 在 SDN_IoT 项目（Ryu + OpenFlow 1.3 + Mininet + BLE 网关）�
 基于 Ryu、OpenFlow 1.3、Mininet、OVS 的 **BLE-IoT SDN 实验原型**，不是成品系统。
 
 - 可用：OF1.3 流表、LLDP/ARP 拓扑发现、设备身份配置、Flask/Vue 面板。
-- 未闭环：真实 BLE 协议栈、数据面差异化转发、应用下发到设备、网关 OpenFlow 客户端、内核 datapath。
+- 未闭环：真实 BLE 协议栈、数据面差异化转发、应用下发到设备、网关 OpenFlow 客户端（7 项协议格式缺陷已修复并交叉验证，但未接入）、内核 datapath。
 
 ## 铁律
 
@@ -64,6 +64,9 @@ cd /home/zhang/桌面/sdn/SDN_IOT
 # 端到端：注入器 → 网关 → Unix socket → 接收器
 .venv/bin/python ryu_extend/switch/test/v4_全链路/test_ble_chain_e2e.py
 
+# OF 1.3 协议栈交叉验证（需要 Ryu；不需要 root/Minet）
+.venv/bin/python gateway/test_ofproto_crosscheck.py
+
 # 注入器 dry-run
 .venv/bin/python gateway/ble_injector.py --count 3 --once --dry-run
 
@@ -84,8 +87,8 @@ cd /home/zhang/桌面/sdn/SDN_IOT
 
 1. **真实 BLE 接入**：`ble_scanner.py` 已提供，但网关本身没有 BLE 协议栈；需要手机/ESP32/dongle 验证。
 2. **属性上报**：代码已完成（UDP + Unix socket），本地已验证；Mininet 内跨命名空间待联调。
-3. **差异化转发**：未实现。Experimenter 动作不参与匹配；主动流表 priority=100 遮蔽 20–50 的扩展流表；拓扑只有一条路径，`route_b` 只是交换 s2 出口端口，不是真正的备用路径。
-4. **主动流表遮蔽 Packet-In**：装表后 IPv4 流量不再上送控制器。
+3. **差异化转发**：未实现。Experimenter 动作是 no-op，不参与匹配；主动流 priority=50，扩展流 120–150；补丁版 OVS 已安装，扩展流可命中（Mininet 实测 n_packets=1）；拓扑只有一条路径，`route_b` 不是真正的备用路径。
+4. **主动流表遮蔽 Packet-In**：已缓解。BLE 路径改为网关上报属性 → 控制器 `install_extension_flow()` 直接下发扩展流；其他 IPv4 流量仍不上送控制器。
 
 ## 修改检查清单
 
