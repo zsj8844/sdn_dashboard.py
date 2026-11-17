@@ -94,10 +94,13 @@ parsed_mgr = IoTExtensionManager.parse_from_experimenter(serialized_data)
 ```
 
 ### 2. 在控制器中使用
-控制器已自动集成扩展字段功能，在处理BLE数据包时会：
-1. 根据传感器类型自动创建SensorType字段
-2. 根据数值大小确定DevicePriority字段
-3. 默认使用RouteSelect字段指向主路径
+控制器在 Packet-In 路径中集成扩展字段（`Other_Modules/packet_processor.py:_parse_ble()` → `Other_Modules/device/iot_processor.py:IoTProcessor.process()`）：
+1. 根据传感器类型创建 SensorType 字段
+2. 根据数值大小确定 DevicePriority 字段（>80→5，>50→4，>30→3，否则 2）
+3. priority ≥ 4 使用 RouteSelect=route_b，否则 route_a
+4. 序列化结果通过 `OFPActionExperimenterUnknown` 注入被动下发的流表
+
+> **限制**：主动预装流表 priority=100 与扩展流表使用相同的 `eth_type+ipv4_dst` 匹配，会优先命中，扩展流表不会执行；主动流表生效后 IPv4 流量不再产生 Packet-In，该链路在稳态下基本不会运行。
 
 ### 3. 测试验证
 ```bash
@@ -164,26 +167,28 @@ python3 test/v3-v4_扩展字段/analyze_packet.py
 3. **安全性**：建议在生产环境中添加字段验证机制
 4. **维护性**：模块化设计便于后续维护和扩展
 
-## 项目架构更新（v4.0.0）
+## 当前架构（v4.5.2）
 
-### 纯NAT网关架构
-- 移除了复杂的网关模拟器
-- 使用标准iptables NAT和IP转发
-- IoT设备直接发送数据到目标主机（h1/h2）
-- 控制器基于目标IP匹配流表，确保所有设备数据正常转发
+- 网关（iot3）开启 `net.ipv4.ip_forward`，不使用 iptables NAT
+- 交换机 s1/s2 的转发由控制器预装 IPv4 流表完成
+- 网关应用层监听 5005：解析 BLE 数据、编码 Experimenter 字段，并把原始数据转发到 h1/h2
+- 扩展信息尝试发往 `127.0.0.1:6650`，但控制器未监听该端口，且 iot3 命名空间内 `127.0.0.1` 不是宿主机，因此不会到达控制器
+- Experimenter 动作仅注入到 Packet-In 路径下发的流表中，受主动流表优先级遮蔽
 
 ### 数据流向
+
 ```
-IoT设备(iot1/iot2/iot4) 
-  ↓ (UDP/5005 直接发送到 h1/h2)
-iot3(NAT网关 - iptables转发) 
-  ↓ (IP转发和NAT)
-s1/s2(OpenFlow13交换机) 
-  ↓ (控制器下发流表)
+IoT设备(iot1/iot2/iot4)
+  ↓ (UDP/5005)
+iot3(网关：IP转发 + 应用层收数/编码/转发)
+  ↓
+s1/s2(OpenFlow13，控制器下发流表)
+  ↓
 h1/h2(监控主机)
 ```
 
 ### 测试命令
+
 ```bash
 # iot1 → h1
 mininet> iot1 echo "aa:bb:cc:dd:ee:01,temp,25.5" | nc -u 192.168.1.20 5005
@@ -193,7 +198,10 @@ mininet> iot2 echo "aa:bb:cc:dd:ee:02,humidity,65.3" | nc -u 192.168.1.21 5005
 
 # iot4 → h1
 mininet> iot4 echo "aa:bb:cc:dd:ee:04,pos,(30.12,120.45)" | nc -u 192.168.1.20 5005
+
+# 经过网关应用层处理
+mininet> iot1 echo "aa:bb:cc:dd:ee:01,temp,25.5" | nc -u 192.168.2.1 5005
 ```
 
 ---
-*本文档最后更新：2026-02-24（v4.0.0）*
+*本文档最后更新：2026-11-17（v4.5.2）*
