@@ -172,11 +172,14 @@ class BLEMeshSwitch13(simple_switch_13.SimpleSwitch13):
         super().switch_features_handler(ev)
         datapath = ev.msg.datapath
         dpid = datapath.id
+        # 交换机重连后流表和 meter 都已丢失，本地缓存必须失效
+        self.flow_manager.forget_switch(dpid)
         self.topology['switches'][dpid] = datapath
         self.logger.info("交换机 %d 已连接", dpid)
         self.reporter.report_topology(self.topology)
 
-        if len(self.topology['switches']) >= 2:
+        # 只有 s1/s2 都上线才预装转发表；网关(3)接入不应触发
+        if {1, 2}.issubset(self.topology['switches']):
             hub.spawn(self._proactive_flow_install)
 
     # ═══════════════════ Packet-In → 委托 PacketProcessor ═══════════════════
