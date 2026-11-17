@@ -71,6 +71,9 @@ class ControlHTTPServer:
 
         total = 0
         for dpid, datapath in switches.items():
+            if dpid not in (1, 2):
+                # 网关等非拓扑交换机不预装 s1/s2 的端口流表
+                continue
             flows = S1_FORWARD_FLOWS if dpid == 1 else S2_FORWARD_FLOWS
             parser = datapath.ofproto_parser
             for ip_dst, out_port, desc in flows:

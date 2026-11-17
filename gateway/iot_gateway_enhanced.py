@@ -37,6 +37,15 @@ except ImportError:
     _shared_select_route = None
     print("警告: 无法导入extensions模块，将使用基础模式")
 
+# OpenFlow 1.3 设备侧客户端：网关以标准 OF 设备身份接入控制器 6634
+try:
+    from of_gateway_agent import GatewayOpenFlowAgent
+    OF_AGENT_AVAILABLE = True
+except ImportError as _of_import_err:
+    GatewayOpenFlowAgent = None
+    OF_AGENT_AVAILABLE = False
+    print(f"警告: 无法导入 OpenFlow 客户端，网关将只做 IP 转发: {_of_import_err}")
+
 class IoTGatewayEnhanced:
     """IoT网关模拟器 - 增强版"""
     
@@ -68,6 +77,13 @@ class IoTGatewayEnhanced:
         ]
         
         self.registered_devices = {}
+
+        # OpenFlow 客户端配置（可用环境变量覆盖）
+        self.of_enabled = os.environ.get('SDN_OF_ENABLE', '1') not in ('0', 'false', 'no')
+        self.of_controller_ip = os.environ.get('SDN_OF_CONTROLLER', DEFAULT_CONTROLLER_IP)
+        self.of_controller_port = int(os.environ.get('SDN_OF_PORT', '6634'))
+        self.of_dpid = int(os.environ.get('SDN_GATEWAY_DPID', '3'))
+        self.of_agent = None
     
     def _init_listen_socket(self):
         """初始化监听socket"""
@@ -264,6 +280,9 @@ class IoTGatewayEnhanced:
                 fwd_msg = f"  数据已转发到: {target_ip}:{self.target_port}"
                 print(fwd_msg)
                 self._log_to_file(fwd_msg)
+
+                # 以 OpenFlow 设备身份上报控制器（本地流表命中则跳过）
+                self._report_to_openflow(ble_addr, data_type, data_value, target_ip)
             else:
                 err_msg = f"  数据格式错误: {received_data}"
                 print(err_msg)
@@ -388,13 +407,51 @@ class IoTGatewayEnhanced:
             print(error_msg)
             self._log_to_file(error_msg)
             return
-        
+
+        self._start_of_agent()
+
         # 保持主线程运行，维持监听状态
         try:
             while self.running:
                 time.sleep(1)
         except KeyboardInterrupt:
             self.stop_gateway()
+
+    def _of_log(self, msg):
+        """OpenFlow 客户端日志：控制台 + 网关日志文件。"""
+        print(msg)
+        self._log_to_file(msg)
+
+    def _start_of_agent(self):
+        """启动 OpenFlow 设备侧客户端，连接控制器 6634。"""
+        if not self.of_enabled:
+            self._of_log("  OpenFlow 客户端已禁用 (SDN_OF_ENABLE=0)")
+            return
+        if not OF_AGENT_AVAILABLE or GatewayOpenFlowAgent is None:
+            self._of_log("  OpenFlow 客户端不可用，跳过接入控制器")
+            return
+
+        self.of_agent = GatewayOpenFlowAgent(
+            dpid=self.of_dpid,
+            controller_host=self.of_controller_ip,
+            controller_port=self.of_controller_port,
+            gateway_ip=self.gateway_ip,
+            log=self._of_log,
+        )
+        self.of_agent.start()
+        self._of_log(
+            f"  OpenFlow 客户端已启动: dpid={self.of_dpid} → "
+            f"{self.of_controller_ip}:{self.of_controller_port}")
+
+    def _report_to_openflow(self, ble_addr, data_type, data_value, target_ip):
+        """BLE 数据 → 网关本地流表查询 / PacketIn 上报。"""
+        if not self.of_agent:
+            return
+        try:
+            self.of_agent.note_sensor_data(
+                ble_addr, data_type, data_value, target_ip)
+        except Exception as e:
+            self._of_log(f"  OpenFlow 上报异常: {e}")
 
     def stop_gateway(self):
         """停止网关"""
@@ -409,6 +466,10 @@ class IoTGatewayEnhanced:
         
         if self.receiver_thread and self.receiver_thread.is_alive():
             self.receiver_thread.join(timeout=2)
+
+        if self.of_agent:
+            self.of_agent.stop()
+            self.of_agent = None
         
         print("网关已停止")
 
