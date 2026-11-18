@@ -65,20 +65,20 @@ cd /home/zhang/桌面/sdn/SDN_IOT
 .venv/bin/python ryu_extend/switch/test/v4_全链路/test_ble_chain_e2e.py
 
 # OF 1.3 协议栈交叉验证（需要 Ryu；不需要 root/Minet）
-.venv/bin/python gateway/test_ofproto_crosscheck.py
+.venv/bin/python gateway/tests/test_ofproto_crosscheck.py
 
 # 注入器 dry-run
-.venv/bin/python gateway/ble_injector.py --count 3 --once --dry-run
+.venv/bin/python gateway/tools/ble_injector.py --count 3 --once --dry-run
 
 # BLE 扫描器（需要适配器已打开）
-.venv/bin/python gateway/ble_scanner.py --timeout 1 --dry-run
+.venv/bin/python gateway/tools/ble_scanner.py --timeout 1 --dry-run
 ```
 
 本机全链路验证：
 
 1. 启动控制器：`.venv/bin/python -m ryu.cmd.manager switch/ble_switch_13.py --ofp-tcp-listen-port 6634`（在 `ryu_extend/` 下）。
 2. 启动网关：`.venv/bin/python gateway/iot_gateway_enhanced.py`（在 `SDN_IOT/` 下，注意 `main()` 会先 sleep 3 秒）。
-3. 发送模拟数据：`.venv/bin/python gateway/ble_injector.py --target 127.0.0.1 --port 5005 --count 3 --once`。
+3. 发送模拟数据：`.venv/bin/python gateway/tools/ble_injector.py --target 127.0.0.1 --port 5005 --count 3 --once`。
 4. 控制器日志出现 `收到IoT扩展信息` 即通过。
 
 注意：项目没有真正的 pytest 测试；`scapy`、`pytest` 只是 requirements 里的未使用依赖，不要当作已使用的工具写进报告。
@@ -110,8 +110,8 @@ cd /home/zhang/桌面/sdn/SDN_IOT
 | `ryu_extend/switch/Other_Modules/infra/ext_receiver.py` | 6650 / Unix socket 接收器 |
 | `ryu_extend/switch/extensions/priority.py` | 统一优先级与路由 |
 | `gateway/iot_gateway_enhanced.py` | IoT 网关 |
-| `gateway/ble_injector.py` | 无硬件 BLE 数据注入 |
-| `gateway/ble_scanner.py` | 宿主机 bleak 扫描器 |
+| `gateway/tools/ble_injector.py` | 无硬件 BLE 数据注入 |
+| `gateway/tools/ble_scanner.py` | 宿主机 bleak 扫描器 |
 | `ryu_extend/topology/iot_sdn_topology.py` | Mininet 拓扑 |
 | `ryu_extend/manage.py` | 启动/停止/状态 |
 

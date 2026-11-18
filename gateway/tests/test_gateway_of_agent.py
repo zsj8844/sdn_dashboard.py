@@ -9,7 +9,7 @@
   4. 命中本地流表后不再发送 PacketIn
   5. 未命中时 PacketIn 能送到控制器
 
-运行：SDN_IOT/.venv/bin/python gateway/test_gateway_of_agent.py
+运行：SDN_IOT/.venv/bin/python gateway/tests/test_gateway_of_agent.py
 """
 
 import os
@@ -19,9 +19,12 @@ import sys
 import threading
 import time
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(HERE)          # gateway/
+CORE_DIR = os.path.join(BASE_DIR, 'core')
 SWITCH_DIR = os.path.join(BASE_DIR, '..', 'ryu_extend', 'switch')
 sys.path.insert(0, BASE_DIR)
+sys.path.insert(0, CORE_DIR)
 sys.path.insert(0, SWITCH_DIR)
 
 from ryu.ofproto import ofproto_v1_3 as ofp  # noqa: E402

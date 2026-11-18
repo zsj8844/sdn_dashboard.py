@@ -2,13 +2,17 @@
 """用 Ryu 的 OpenFlow 1.3 解析器交叉验证 ofproto_client 的报文格式。
 
 运行：
-    SDN_IOT/.venv/bin/python gateway/test_ofproto_crosscheck.py
+    SDN_IOT/.venv/bin/python gateway/tests/test_ofproto_crosscheck.py
 """
 
+import os
 import struct
 import sys
 
-sys.path.insert(0, __file__.rsplit('/', 1)[0])
+HERE = os.path.dirname(os.path.abspath(__file__))
+GATEWAY_DIR = os.path.dirname(HERE)         # gateway/
+sys.path.insert(0, GATEWAY_DIR)
+sys.path.insert(0, os.path.join(GATEWAY_DIR, 'core'))
 
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as ofpp

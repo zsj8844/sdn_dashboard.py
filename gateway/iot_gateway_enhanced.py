@@ -23,6 +23,7 @@ DEFAULT_CONTROLLER_IP = os.environ.get('SDN_CONTROLLER_IP', '192.168.1.1')
 DEFAULT_EXT_SOCKET = os.environ.get('SDN_EXT_SOCKET', '/tmp/sdn_iot_ext.sock')
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../ryu_extend/switch'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'core'))
 try:
     from extensions.manager import IoTExtensionManager, create_iot_extension
     from extensions.constants import SENSOR_TYPES, PRIORITY_LEVELS
@@ -45,6 +46,25 @@ except ImportError as _of_import_err:
     GatewayOpenFlowAgent = None
     OF_AGENT_AVAILABLE = False
     print(f"警告: 无法导入 OpenFlow 客户端，网关将只做 IP 转发: {_of_import_err}")
+
+# XDP 探针桥：探针通过 Unix socket 查网关本地缓存 / 接收 flow_ready
+try:
+    from probe_bridge import ProbeBridge, resolve_target_ip as _bridged_target_ip
+    PROBE_BRIDGE_AVAILABLE = True
+except ImportError as _bridge_import_err:
+    ProbeBridge = None
+    _bridged_target_ip = None
+    PROBE_BRIDGE_AVAILABLE = False
+    print(f"警告: 无法导入 XDP 探针桥: {_bridge_import_err}")
+
+# 逐包优先级标记（SO_PRIORITY + DSCP）
+try:
+    from qos import mark_socket as _mark_socket
+    QOS_AVAILABLE = True
+except ImportError as _qos_import_err:
+    _mark_socket = None
+    QOS_AVAILABLE = False
+    print(f"警告: 无法导入优先级标记模块: {_qos_import_err}")
 
 class IoTGatewayEnhanced:
     """IoT网关模拟器 - 增强版"""
@@ -84,6 +104,7 @@ class IoTGatewayEnhanced:
         self.of_controller_port = int(os.environ.get('SDN_OF_PORT', '6634'))
         self.of_dpid = int(os.environ.get('SDN_GATEWAY_DPID', '3'))
         self.of_agent = None
+        self.probe_bridge = None
     
     def _init_listen_socket(self):
         """初始化监听socket"""
@@ -161,6 +182,16 @@ class IoTGatewayEnhanced:
             print(f"  编码OpenFlow扩展失败: {e}")
             return None
     
+    def _target_ip_for(self, ble_addr):
+        """BLE 地址 → 目标 IP（与 probe_bridge 共用同一份映射）。"""
+        if _bridged_target_ip is not None:
+            return _bridged_target_ip(ble_addr)
+        if ble_addr in ['aa:bb:cc:dd:ee:01', 'aa:bb:cc:dd:ee:04']:
+            return '192.168.1.20'
+        if ble_addr == 'aa:bb:cc:dd:ee:02':
+            return '192.168.1.21'
+        return '192.168.1.20'
+
     def _calculate_priority(self, data_type, data_value):
         """根据数据类型和值计算优先级（与控制器共用同一份逻辑）"""
         if _shared_calculate_priority is not None:
@@ -264,20 +295,19 @@ class IoTGatewayEnhanced:
                 self._log_to_file(parse_msg)
                 
                 extension_info = self.encode_openflow_extension(ble_addr, data_type, data_value)
-                if ble_addr in ['aa:bb:cc:dd:ee:01', 'aa:bb:cc:dd:ee:04']:
-                    target_ip = '192.168.1.20'
-                elif ble_addr == 'aa:bb:cc:dd:ee:02':
-                    target_ip = '192.168.1.21'
-                else:
-                    target_ip = '192.168.1.20'
+                target_ip = self._target_ip_for(ble_addr)
 
                 if extension_info:
                     extension_info['target_ip'] = target_ip
                     print(f"  OpenFlow扩展编码成功: 优先级={extension_info['device_priority']}")
                     self.send_to_controller(extension_info)
 
-                self.forward_data(received_data, target_ip)
-                fwd_msg = f"  数据已转发到: {target_ip}:{self.target_port}"
+                priority = (extension_info.get('device_priority')
+                            if extension_info else
+                            self._calculate_priority(data_type, data_value))
+                self.forward_data(received_data, target_ip, priority)
+                fwd_msg = (f"  数据已转发到: {target_ip}:{self.target_port}"
+                           f"（优先级 {priority}）")
                 print(fwd_msg)
                 self._log_to_file(fwd_msg)
 
@@ -292,15 +322,19 @@ class IoTGatewayEnhanced:
             print(err_msg)
             self._log_to_file(err_msg)
     
-    def forward_data(self, data, target_ip):
-        """转发数据到目标主机"""
+    def forward_data(self, data, target_ip, priority=None):
+        """转发数据到目标主机；priority 1–5 会逐包贴 SO_PRIORITY + DSCP。"""
         try:
             if self.use_udp:
                 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                if priority is not None and _mark_socket is not None:
+                    _mark_socket(sock, priority)
                 sock.sendto(data.encode('utf-8'), (target_ip, self.target_port))
                 sock.close()
             else:
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                if priority is not None and _mark_socket is not None:
+                    _mark_socket(sock, priority)
                 sock.connect((target_ip, self.target_port))
                 sock.sendall(data.encode('utf-8'))
                 sock.close()
@@ -333,8 +367,11 @@ class IoTGatewayEnhanced:
             extension_info['target_ip'] = target_ip
             self.send_to_controller(extension_info)
         
-        self.forward_data(packet_data, target_ip)
-        send_msg = f"  网关发送: {sensor_type} -> {target_ip}"
+        priority = (extension_info.get('device_priority')
+                    if extension_info else
+                    self._calculate_priority(sensor_type, str(value)))
+        self.forward_data(packet_data, target_ip, priority)
+        send_msg = f"  网关发送: {sensor_type} -> {target_ip}（优先级 {priority}）"
         print(send_msg)
         self._log_to_file(send_msg)
         
@@ -442,6 +479,24 @@ class IoTGatewayEnhanced:
         self._of_log(
             f"  OpenFlow 客户端已启动: dpid={self.of_dpid} → "
             f"{self.of_controller_ip}:{self.of_controller_port}")
+        self._start_probe_bridge()
+
+    def _start_probe_bridge(self):
+        """启动 XDP 探针桥：探针查网关本地缓存 / FlowMod 后推送 flow_ready。"""
+        if os.environ.get('SDN_XDP_BRIDGE', '1') in ('0', 'false', 'no'):
+            self._of_log("  XDP 探针桥已禁用 (SDN_XDP_BRIDGE=0)")
+            return
+        if not PROBE_BRIDGE_AVAILABLE or ProbeBridge is None:
+            self._of_log("  XDP 探针桥不可用，跳过")
+            return
+        try:
+            self.probe_bridge = ProbeBridge(self.of_agent, log=self._of_log)
+            self.of_agent.on_flow_installed = self.probe_bridge.on_flow_installed
+            self.of_agent.on_flow_deleted = self.probe_bridge.on_flow_deleted
+            self.probe_bridge.start()
+        except Exception as exc:  # noqa: BLE001 - 桥失败不影响网关数据面
+            self.probe_bridge = None
+            self._of_log(f"  XDP 探针桥启动失败: {exc}")
 
     def _report_to_openflow(self, ble_addr, data_type, data_value, target_ip):
         """BLE 数据 → 网关本地流表查询 / PacketIn 上报。"""
@@ -466,6 +521,10 @@ class IoTGatewayEnhanced:
         
         if self.receiver_thread and self.receiver_thread.is_alive():
             self.receiver_thread.join(timeout=2)
+
+        if self.probe_bridge:
+            self.probe_bridge.stop()
+            self.probe_bridge = None
 
         if self.of_agent:
             self.of_agent.stop()

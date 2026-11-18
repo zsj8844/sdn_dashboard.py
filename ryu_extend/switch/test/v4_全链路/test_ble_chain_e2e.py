@@ -62,7 +62,7 @@ def main():
         worker.start()
 
         proc = subprocess.run(
-            [sys.executable, os.path.join(GATEWAY_DIR, 'ble_injector.py'),
+            [sys.executable, os.path.join(GATEWAY_DIR, 'tools', 'ble_injector.py'),
              '--target', '127.0.0.1', '--port', str(GATEWAY_PORT),
              '--count', '3', '--once'],
             capture_output=True, text=True)
