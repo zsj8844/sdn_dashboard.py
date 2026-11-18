@@ -145,8 +145,20 @@ def start_controller():
 
 def start_dashboard():
     info("启动监控面板...")
-    p = run([PYTHON3, "templates/sdn_dashboard.py"],
-            bg=True, log=DASH_LOG)
+    gin_dir = os.path.join(
+        PROJECT_DIR, "templates/sdn_dashboard_vue/sdn_dashboard_server_go")
+    gin_dash = os.path.join(gin_dir, "bin", "dashboard-go")
+    if not os.path.exists(gin_dash):
+        info("未找到 Gin 面板二进制，尝试 make 构建...")
+        try:
+            subprocess.run(["make", "-C", gin_dir], check=True,
+                           stdout=subprocess.DEVNULL,
+                           stderr=subprocess.STDOUT)
+        except Exception as exc:
+            warn(f"构建 Gin 面板失败：{exc}")
+            warn(f"请手动执行: make -C {gin_dir}")
+            return
+    p = run([gin_dash, "--port", str(DASH_PORT)], bg=True, log=DASH_LOG)
     with open(PID_FILE, "a") as f:
         f.write(f"{p.pid}\n")
     info(f"面板 PID: {p.pid}")

@@ -1,7 +1,7 @@
 # SDN IoT 实验项目
 
 基于 Ryu 控制器、OpenFlow 1.3、Mininet 与 Open vSwitch 的 BLE-IoT SDN 实验原型。
-IoT 数据从 iot3 网关进入 SDN 域，控制器完成主机发现、路由决策与流表下发，并通过 OpenFlow Experimenter 字段携带传感器类型、优先级等业务元数据；同时提供 Flask API 与 Vue 3 可视化面板。
+IoT 数据从 iot3 网关进入 SDN 域，控制器完成主机发现、路由决策与流表下发，并通过 OpenFlow Experimenter 字段携带传感器类型、优先级等业务元数据；同时提供 Gin（Go）API 与 Vue 3 可视化面板。
 
 ## 当前状态
 
@@ -60,7 +60,10 @@ SDN_IOT/
 │   │   ├── config/              # 设备身份配置（实际使用）
 │   │   └── test/                # 分阶段测试脚本
 │   ├── topology/iot_sdn_topology.py
-│   ├── templates/               # Flask 面板 + Vue 3 前端
+│   ├── templates/               # Web 面板 + Vue 3 前端
+│   │   └── sdn_dashboard_vue/
+│   │       ├── sdn_dashboard_view/          # Vue 3 SPA
+│   │       └── sdn_dashboard_server_go/     # Gin（Go）API
 │   ├── docx/                    # 项目文档
 │   ├── manage.py                # 启动 / 停止 / 状态管理
 │   └── run_tests.py
@@ -89,7 +92,10 @@ SDN_IOT/
 cd SDN_IOT
 source .venv/bin/activate
 
-# 启动控制器、Flask 面板、网关、Vue 前端
+# 首次：构建 Gin 面板（之后 manage.py 会优先启动它）
+make -C ryu_extend/templates/sdn_dashboard_vue/sdn_dashboard_server_go
+
+# 启动控制器、Gin 面板、网关、Vue 前端
 python3 ryu_extend/manage.py start
 
 # 拓扑需要单独启动（manage.py start 不包含拓扑）
@@ -204,7 +210,7 @@ Mininet 未被改动；数字只对 veth + copy 模式有效）：
 | 端口 | 用途 |
 |------|------|
 | 6634 | Ryu 控制器（OpenFlow 1.3） |
-| 5000 | Flask API / 面板 |
+| 5000 | Gin API / 面板 |
 | 5173 | Vue 开发服务器 |
 | 5005 | IoT 数据 UDP 端口 |
 | 6650 | 网关属性上报 UDP（控制器内置接收器） |

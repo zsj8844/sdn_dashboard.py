@@ -9,7 +9,7 @@ description: 在 SDN_IoT 项目（Ryu + OpenFlow 1.3 + Mininet + BLE 网关）�
 
 基于 Ryu、OpenFlow 1.3、Mininet、OVS 的 **BLE-IoT SDN 实验原型**，不是成品系统。
 
-- 可用：OF1.3 流表、LLDP/ARP 拓扑发现、设备身份配置、Flask/Vue 面板。
+- 可用：OF1.3 流表、LLDP/ARP 拓扑发现、设备身份配置、Gin（Go）/Vue 面板。
 - 未闭环：真实 BLE 协议栈、数据面差异化转发、应用下发到设备、网关 OpenFlow 客户端（7 项协议格式缺陷已修复并交叉验证，但未接入）、内核 datapath。
 
 ## 铁律
@@ -112,6 +112,7 @@ cd /home/zhang/桌面/sdn/SDN_IOT
 | `gateway/iot_gateway_enhanced.py` | IoT 网关 |
 | `gateway/tools/ble_injector.py` | 无硬件 BLE 数据注入 |
 | `gateway/tools/ble_scanner.py` | 宿主机 bleak 扫描器 |
+| `ryu_extend/templates/sdn_dashboard_vue/sdn_dashboard_server_go/` | Gin（Go）面板 API（默认） |
 | `ryu_extend/topology/iot_sdn_topology.py` | Mininet 拓扑 |
 | `ryu_extend/manage.py` | 启动/停止/状态 |
 

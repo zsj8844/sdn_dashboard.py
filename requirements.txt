@@ -11,9 +11,7 @@ pbr
 ryu==4.34
 # mininet 需通过系统包管理器安装: sudo apt install mininet
 
-# Web面板依赖
-Flask
-flask-cors
+# Web 面板：默认 Gin（Go）二进制，无 Python 依赖
 
 # 网络和数据处理
 scapy

@@ -69,12 +69,6 @@ verify_install() {
         info "Ryu安装成功"
     fi
     
-    if "$VENV_DIR/bin/python" -c "import flask" 2>&1 | grep -q "ImportError"; then
-        error "Flask安装失败"
-    else
-        info "Flask安装成功"
-    fi
-    
     info "所有依赖安装完成！"
 }
 
