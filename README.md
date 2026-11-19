@@ -21,7 +21,8 @@ IoT 数据从 iot3 网关进入 SDN 域，控制器完成主机发现、路由�
 | 网关侧 OpenFlow 协议客户端 | ✅ 已接入网关：dpid=3 完成 HELLO/FEATURES 握手，PacketIn 上报、FlowMod 写入本地流表；已对真实控制器本地验证，Mininet 待联调 |
 | 网关入向 XDP filter + 流探针（eBPF，阶段 1–5） | ✅ 隔离 veth/容器已验证：过滤计数、ringbuf 事件、PENDING 冷却、网关本地缓存→eBPF 缓存双写、TTL 老化、50 次/s 限速；真实拓扑联调待做 |
 | 优先级标记 + 出口 HTB（阶段 6） | ✅ 隔离 veth 已验证：拥塞时 EF 队列平均延迟 176 ms vs 普通 632 ms；空闲和移除 qdisc 后无差异 |
-| 阶段 7 测量 | ✅ filter-only vs filter+probe 各 5000 包：100% 接收、命中率 0.9998、事件 1 次；数字仅对 veth/copy 模式有效 |
+| 阶段 7 测量 | ✅ filter-only vs filter+probe 各 5000 包：100% 接收、命中率 0.9998、事件 1 次；数字仅对 veth + XDP generic（skb）模式有效 |
+| Go 版探针（cilium/ebpf） | ⚠️ 编译通过；root 级挂载与计数尚未实测，需本地跑 `gateway/xdp/goprobe/selftest_go.sh` |
 
 未完成项、根因与实施路线见 [问题.md](问题.md)。
 
@@ -41,9 +42,12 @@ SDN_IOT/
 │   │   ├── ble_scanner.py       # 宿主机 BLE 扫描（bleak，可选）
 │   │   └── iot_gateway_simulator.py # 旧版模拟器，未被引用
 │   ├── xdp/                     # eBPF 入向过滤 + 流探针（实现）
-│   │   ├── gw_filter_probe.c    # XDP 程序（BCC 加载；filter + ringbuf 事件）
+│   │   ├── gw_filter_types.h    # 共享结构体/常量（两个加载器共用）
+│   │   ├── gw_filter_logic.h    # 共享 filter 逻辑（两个加载器共用）
+│   │   ├── gw_filter_probe.c    # BCC 薄封装：map 定义 + 入口
 │   │   ├── gw_xdp_filter.py     # 挂载 / 计数 / probe / 退场（系统 Python + root）
-│   │   └── qos_egress.sh        # 出口 HTB + DSCP 分类（tc）
+│   │   ├── qos_egress.sh        # 出口 HTB + DSCP 分类（tc）
+│   │   └── goprobe/             # Go + libbpf 薄封装（cilium/ebpf）
 │   └── tests/                   # 所有网关测试
 │       ├── selftest.sh          # 阶段 1：filter 计数/丢弃自测（需 root）
 │       ├── selftest_probe.py    # 阶段 2–5/7：探针、限速、测量（需 root）
@@ -138,7 +142,7 @@ mininet> iot3 /usr/bin/python3 /home/zhang/桌面/sdn/SDN_IOT/gateway/xdp/gw_xdp
 mininet> iot3 /usr/bin/python3 /home/zhang/桌面/sdn/SDN_IOT/gateway/xdp/gw_xdp_filter.py --interval 2
 
 # 出口优先级（拥塞时才有效果）：iot3 面向 s1 的接口
-mininet> iot3 /home/zhang/桌面/sdn/SDN_IOT/gateway/xdp/qos_egress.sh setup eth3 1000
+mininet> iot3 /home/zhang/桌面/sdn/SDN_IOT/gateway/xdp/qos_egress.sh setup iot3-eth3 1000
 
 # 不依赖 Mininet 的自测（需 root；阶段 2–7 需要 BCC）
 sudo ./gateway/tests/selftest.sh                  # 阶段 1
@@ -159,8 +163,8 @@ sudo nsenter -t "$(pgrep -f iot_gateway_enhanced.py | head -1)" -n \
 cd gateway/xdp/goprobe
 make
 
-# 在 iot3 命名空间内运行（--ifaces 用逗号分隔）
-sudo ip netns exec iot3 ./gw-xdp-go --ifaces iot3-eth0,iot3-eth1,iot3-eth2
+# 在 Mininet CLI 的 iot3 命名空间内运行（--ifaces 用逗号分隔）
+mininet> iot3 /home/zhang/桌面/sdn/SDN_IOT/gateway/xdp/goprobe/gw-xdp-go --ifaces iot3-eth0,iot3-eth1,iot3-eth2
 
 # 最小自测（需要 root）
 sudo ./selftest_go.sh
@@ -168,14 +172,15 @@ sudo ./selftest_go.sh
 
 - C 程序在 `gateway/xdp/goprobe/bpf/gw_filter_probe.c`，是 libbpf 写法；
 - 与 Python 版**二选一**，不要同时挂同一接口；切换前先 `--detach-only`；
-- 性能与 Python/BCC 版相同，收益只是部署更干净（单二进制）。
+- 数据面是同一份 C 程序，功能与 Python/BCC 版对齐；root 级挂载与计数尚未实测，收益主要是部署更干净（单二进制）。
 
 注意：XDP 挂在 iot3-eth0/1/2，只有从 iot1/2/4 发往网关的包会经过它；从宿主机
 直接发给 192.168.1.12 的包走 iot3-eth3，不经过这个过滤点（要测就 `mininet> iot1
 python3 /home/zhang/桌面/sdn/SDN_IOT/gateway/tools/ble_injector.py --target 192.168.2.1`）。
 
 状态（2026-11-17，全部在隔离特权容器 / 宿主机 venv 完成，宿主机网络与
-Mininet 未被改动；数字只对 veth + copy 模式有效）：
+Mininet 未被改动；本机物理网卡是 Wi-Fi（rtw89），不支持 native XDP，所有挂载
+均为 veth + XDP generic（skb）模式，数字不代表物理网卡性能）：
 
 - **阶段 1**（`selftest.sh`）：1000 个 5005 包 `flow_miss=1 + flow_cached=999`
   且接收端收到 1000；`non_5005=50`、`parse_error=0`；开 cfg 后非 5005
@@ -211,4 +216,4 @@ Mininet 未被改动；数字只对 veth + copy 模式有效）：
 
 ## 版本
 
-当前文档对应代码版本 v4.5.2，最后更新 2026-11-17。
+当前文档对应代码版本 v4.5.2，最后更新 2026-11-19。
