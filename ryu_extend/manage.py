@@ -47,7 +47,10 @@ def error(msg):
     sys.exit(1)
 
 
-def run(cmd, sudo=False, bg=False, log=None):
+def run(cmd, sudo=False, bg=False, log=None, env=None):
+    if env:
+        # sudo 默认重置环境，必须用 `sudo env K=V cmd` 显式传递
+        cmd = ["env"] + [f"{k}={v}" for k, v in env.items()] + cmd
     if sudo:
         cmd = ["sudo"] + cmd
     if bg:
@@ -152,10 +155,23 @@ def start_dashboard():
     info(f"面板 PID: {p.pid}")
 
 
+def conda_prefix_of(python_bin):
+    """从解释器路径反推 conda 根目录：.../anaconda3/envs/<名>/bin/python3 → .../anaconda3"""
+    env_dir = os.path.dirname(os.path.dirname(os.path.abspath(python_bin)))
+    if os.path.basename(os.path.dirname(env_dir)) == "envs":
+        return os.path.dirname(os.path.dirname(env_dir))
+    return os.environ.get("CONDA_PREFIX", "")
+
+
 def start_topology():
     info("启动Mininet拓扑...")
-    p = run(["python3", "topology/iot_sdn_topology.py"],
-            sudo=True, bg=True,
+    if run([PYTHON3, "-c", "import mininet"]).returncode != 0:
+        error(f"解释器 {PYTHON3} 缺少 mininet，请先执行 conda activate ryu-env 再运行 manage.py")
+    # sudo 会重置环境，而拓扑要用 CONDA_PREFIX 定位网关解释器，必须显式传入
+    conda_prefix = conda_prefix_of(PYTHON3)
+    env = {"CONDA_PREFIX": conda_prefix} if conda_prefix else None
+    p = run([PYTHON3, "topology/iot_sdn_topology.py"],
+            sudo=True, bg=True, env=env,
             log=os.path.join(LOG_DIR, "topology.log"))
     with open(PID_FILE, "a") as f:
         f.write(f"{p.pid}\n")

@@ -33,19 +33,18 @@ def setup_host_networking(host):
     if host.name == 'iot3':
         print("  iot3 接口列表:", [intf.name for intf in host.intfs.values() if intf.name != 'lo'])
 
-        interface_configs = [
-            ('iot3-eth0', '192.168.2.1/24'),
-            ('iot3-eth1', '192.168.3.1/24'),
-            ('iot3-eth2', '192.168.4.1/24'),
-            ('iot3-eth3', '192.168.1.12/24')
-        ]
+        interface_configs = {
+            'iot3-eth0': '192.168.2.1/24',
+            'iot3-eth1': '192.168.3.1/24',
+            'iot3-eth2': '192.168.4.1/24',
+            'iot3-eth3': '192.168.1.12/24',
+        }
 
-        intf_list = [intf for intf in host.intfs.values() if intf.name != 'lo']
-        for i, intf in enumerate(intf_list):
-            if i < len(interface_configs):
-                intf_name, ip_addr = interface_configs[i]
-                host.cmd('ip link set {} up'.format(intf.name))
-                host.cmd('ip addr add {} dev {}'.format(ip_addr, intf.name))
+        # 必须按接口名配置：host.intfs 的迭代顺序取决于 Mininet 建链顺序，
+        # 与 ethN 编号不保证一致，按索引取会把网段配到错误的链路上
+        for intf_name, ip_addr in interface_configs.items():
+            host.cmd('ip link set {} up'.format(intf_name))
+            host.cmd('ip addr add {} dev {}'.format(ip_addr, intf_name))
 
         host.cmd('sysctl -w net.ipv4.ip_forward=1 > /dev/null 2>&1')
         print("  iot3 IP转发已开启（纯路由模式，路由由SDN控制器流表决策）")
