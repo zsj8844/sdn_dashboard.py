@@ -171,12 +171,19 @@ class ProbeRuntime:
         self._lock = threading.Lock()
         self._key_target = {}     # key tuple -> target_ip
         self._pending = {}        # key tuple -> target_ip（已上报，等 FlowMod）
+        self.cfg_mode = "count-only"   # 由 main 覆盖：count-only / drop-non5005
+        self.ifaces = []               # 由 main 覆盖：已挂载的接口
         self._sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
         try:
             os.unlink(client_path)
         except FileNotFoundError:
             pass
         self._sock.bind(client_path)
+        # 面板以普通用户身份查询计数器，root 创建的 socket 默认 0755 会被 EACCES 拒绝
+        try:
+            os.chmod(client_path, 0o666)
+        except OSError:
+            pass
         self._sock.settimeout(0.5)
         self._halt = threading.Event()
         self._thread = threading.Thread(target=self._recv_loop, daemon=True,
@@ -232,6 +239,28 @@ class ProbeRuntime:
             return True
 
     # ── 网关 → 探针 ──
+    def stats_payload(self):
+        """当前计数器快照（供面板 / API 查询）"""
+        totals = _snapshot(self.bpf)
+        total_5005 = totals["flow_cached"] + totals["flow_miss"]
+        with self._lock:
+            probe_stats = dict(self.stats)
+            cache_entries = len(self._key_target)
+            pending = len(self._pending)
+        return {
+            "op": "stats_reply",
+            "ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            "netns": _netns_id(),
+            "ifaces": list(self.ifaces),
+            "cfg": self.cfg_mode,
+            "totals": totals,
+            "total_5005": total_5005,
+            "hit_rate": (totals["flow_cached"] / total_5005) if total_5005 else 0.0,
+            "probe": probe_stats,
+            "cache_entries": cache_entries,
+            "pending": pending,
+        }
+
     def _recv_loop(self):
         while not self._halt.is_set():
             try:
@@ -251,6 +280,12 @@ class ProbeRuntime:
                 self._on_flow_ready(msg)
             elif op == "flow_delete":
                 self._on_flow_delete(msg)
+            elif op == "stats":
+                try:
+                    self._sock.sendto(
+                        json.dumps(self.stats_payload()).encode("utf-8"), _addr)
+                except OSError:
+                    pass
 
     def _on_reply(self, msg):
         key = tuple(msg.get("key") or ())
@@ -439,6 +474,8 @@ def main():
                              args.probe_rate, lambda m: print(m, flush=True),
                              ttl_default=args.ttl)
         probe.start()
+        probe.cfg_mode = args.set_cfg or "count-only"
+        probe.ifaces = list(attached)
         bpf["misses"].open_ring_buffer(probe.on_miss)
         print(f"probe 已启动：resolve → {args.probe_sock}，"
               f"本进程监听 {args.probe_client_sock}，上限 {args.probe_rate}/s",

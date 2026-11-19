@@ -15,6 +15,11 @@ export async function fetchStats() {
   return res.json()
 }
 
+export async function fetchXdpStats() {
+  const res = await fetch(`${BASE}/xdp/stats`)
+  return res.json()
+}
+
 export async function fetchFlows() {
   const res = await fetch(`${BASE}/flows`)
   return res.json()

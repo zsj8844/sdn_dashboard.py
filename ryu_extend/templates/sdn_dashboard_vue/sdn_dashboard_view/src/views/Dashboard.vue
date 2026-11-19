@@ -1,16 +1,26 @@
 <script setup>
-import { ref, onMounted } from 'vue'
-import { fetchData } from '../api'
+import { ref, onMounted, onUnmounted } from 'vue'
+import { fetchData, fetchXdpStats } from '../api'
 
 const data = ref(null)
 const loading = ref(true)
+const xdp = ref(null)
+let xdpTimer = null
+
+function refreshXdp() {
+  fetchXdpStats().then(s => { xdp.value = s }).catch(() => {})
+}
 
 onMounted(() => {
   fetchData()
     .then(setData)
     .catch(console.error)
     .finally(() => loading.value = false)
+  refreshXdp()
+  xdpTimer = setInterval(refreshXdp, 3000)
 })
+
+onUnmounted(() => clearInterval(xdpTimer))
 
 function setData(d) { data.value = d }
 
@@ -18,6 +28,8 @@ const switches = () => data.value?.switches_status || {}
 const bleNodes = () => data.value?.ble_mesh?.nodes || []
 const onlineBle = () => bleNodes().filter(n => n.status === '在线').length
 const onlineSw = () => Object.values(switches()).filter(s => s.connected).length
+const xdpTotals = () => xdp.value?.totals || {}
+const hitRate = () => ((xdp.value?.hit_rate || 0) * 100).toFixed(1)
 </script>
 
 <template>
@@ -49,6 +61,31 @@ const onlineSw = () => Object.values(switches()).filter(s => s.connected).length
           <span class="stat-sub">条</span>
         </div>
       </div>
+
+      <h3>XDP 快车道</h3>
+      <div v-if="xdp?.available" class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-value">{{ hitRate() }}%</span>
+          <span class="stat-label">缓存命中率</span>
+          <span class="stat-sub">{{ xdp.cfg }} · {{ (xdp.ifaces || []).join(', ') }}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value">{{ xdpTotals().flow_cached || 0 }}</span>
+          <span class="stat-label">快车道包</span>
+          <span class="stat-sub">未打扰控制器</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value">{{ xdpTotals().flow_miss || 0 }}</span>
+          <span class="stat-label">未命中包</span>
+          <span class="stat-sub">限流 {{ xdp.probe?.rate_limited || 0 }}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value">{{ xdp.cache_entries || 0 }}</span>
+          <span class="stat-label">缓存条目</span>
+          <span class="stat-sub">待下发 {{ xdp.pending || 0 }}</span>
+        </div>
+      </div>
+      <div v-else class="log-empty">XDP 探针未运行（{{ xdp?.reason || '未连接' }}）</div>
 
       <h3>交换机状态</h3>
       <div class="switch-cards">

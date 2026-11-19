@@ -2,6 +2,7 @@ from flask import Flask, render_template, jsonify, request, send_from_directory
 import subprocess
 import threading
 import time
+import socket
 from collections import deque, defaultdict
 import logging
 import json
@@ -465,6 +466,41 @@ def stats_api():
 
 
 # ============ 流表管理 API ============
+
+PROBE_STATS_SOCK = os.environ.get('SDN_PROBE_STATS_SOCK', '/tmp/sdn_xdp_probe_cli.sock')
+
+
+def query_probe_stats(timeout=0.5):
+    """向 XDP 探针查询计数器快照；探针未运行时返回 available=False。"""
+    client_path = f"/tmp/sdn_dash_probe_{os.getpid()}_{threading.get_ident()}.sock"
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+    try:
+        try:
+            os.unlink(client_path)
+        except FileNotFoundError:
+            pass
+        sock.bind(client_path)
+        sock.settimeout(timeout)
+        sock.sendto(json.dumps({"op": "stats"}).encode("utf-8"), PROBE_STATS_SOCK)
+        data, _ = sock.recvfrom(65536)
+        payload = json.loads(data.decode("utf-8"))
+        payload["available"] = True
+        return payload
+    except (OSError, ValueError) as e:
+        return {"available": False, "reason": str(e)}
+    finally:
+        sock.close()
+        try:
+            os.unlink(client_path)
+        except FileNotFoundError:
+            pass
+
+
+@app.route('/api/xdp/stats', methods=['GET'])
+def xdp_stats_api():
+    """XDP 快车道计数器：命中率、分类计数、探针内部统计"""
+    return jsonify(query_probe_stats())
+
 
 @app.route('/api/flows', methods=['GET', 'POST', 'DELETE'])
 def flows_api():
