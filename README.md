@@ -1,432 +1,214 @@
-[项目说明.md](https://github.com/user-attachments/files/25653024/default.md)
-# SDN IoT 扩展项目
+# SDN IoT 实验项目
 
-## 项目概述
+基于 Ryu 控制器、OpenFlow 1.3、Mininet 与 Open vSwitch 的 BLE-IoT SDN 实验原型。
+IoT 数据从 iot3 网关进入 SDN 域，控制器完成主机发现、路由决策与流表下发，并通过 OpenFlow Experimenter 字段携带传感器类型、优先级等业务元数据；同时提供 Flask API 与 Vue 3 可视化面板。
 
-这是一个基于Ryu控制器的软件定义网络(SDN)物联网(IoT)扩展项目，实现了BLE Mesh网络的数据收集、转发和可视化监控功能。
+## 当前状态
 
-## 最新更新（2026-02-26）
+| 能力 | 状态 |
+|------|------|
+| OpenFlow 1.3 流表下发 / 统计采集 | ✅ 可用 |
+| LLDP 拓扑发现、主机发现、拓扑可视化 | ✅ 可用 |
+| 设备身份配置（IP → 设备信息）热加载 | ✅ 可用 |
+| 网关属性上报（UDP 6650 / Unix socket） | ✅ 控制器接收器已接入；本地 UDP/Unix 已验证，Mininet 待联调 |
+| 流表增删改查 | ✅ 增/删/改可用；本地缓存已同步 |
+| 流表去重与重连失效 | ✅ 相同 FlowMod 重复下发会被跳过；交换机重连清空本地缓存 |
+| route_b 备用链路 | ⚠️ 拓扑中没有第二条物理链路，route_b 降级为 route_a 并打日志标注（不再假装切换） |
+| 业务优先级影响转发（meter） | ✅ 优先级 ≤3 的扩展流走 64 kbps meter（`SDN_LOW_PRIO_METER_KBPS` 可调，`SDN_QOS_METER=0` 关闭）；本地单测通过，真实 OVS 待 Mininet 联调 |
+| Experimenter 字段编解码与流表注入 | ⚠️ 编码/注入/补丁 OVS 验证通过；标准 OVS 拒收自定义 vendor，需应用 `Ovs_extend` 补丁 |
+| 真实 BLE Mesh 接入 | ❌ 网关没有 BLE 协议栈；宿主机 bleak 扫描器已提供（需硬件） |
+| 边缘应用下发 / 设备角色切换 | ❌ 面板内存模型，无设备侧执行 |
+| 网关侧 OpenFlow 协议客户端 | ✅ 已接入网关：dpid=3 完成 HELLO/FEATURES 握手，PacketIn 上报、FlowMod 写入本地流表；已对真实控制器本地验证，Mininet 待联调 |
+| 网关入向 XDP filter + 流探针（eBPF，阶段 1–5） | ✅ 隔离 veth/容器已验证：过滤计数、ringbuf 事件、PENDING 冷却、网关本地缓存→eBPF 缓存双写、TTL 老化、50 次/s 限速；真实拓扑联调待做 |
+| 优先级标记 + 出口 HTB（阶段 6） | ✅ 隔离 veth 已验证：拥塞时 EF 队列平均延迟 176 ms vs 普通 632 ms；空闲和移除 qdisc 后无差异 |
+| 阶段 7 测量 | ✅ filter-only vs filter+probe 各 5000 包：100% 接收、命中率 0.9998、事件 1 次；数字仅对 veth/copy 模式有效 |
 
-### 🚀 重大更新 - v4.2.0
-
-1. **应用下发功能实现**：提供完整的边缘应用生命周期管理，包括应用创建、封装、部署、卸载，支持数据过滤、AI推理、数据聚合等多种应用类型
-2. **角色切换功能实现**：支持设备模式动态切换，提供纯转发、计算混合、物联网网关三种模式，支持模式切换前后的能力检查和优雅过渡
-3. **扩展字段增强**：新增应用部署和角色切换相关的OpenFlow扩展字段
-4. **文档全面更新**：创建详细的功能实现文档，更新所有相关文档
-
-### 🔧 重要修复 - v4.1.0 (2026-02-25)
-
-1. **拓扑可视化修复**：修复增强版面板中拓扑显示错误，iot1/iot2/iot4 现在正确连接到 iot3 网关
-2. **控制器流表优化**：添加对 IoT 设备 IP 地址的专门处理，确保数据正确转发
-3. **拓扑文件恢复**：从 git 历史恢复原始版本的拓扑文件，修正语法错误
-4. **数据传输说明**：明确两种数据传输方式（通过网关模拟器和直接发送）
-
-### 🔧 重大更新 - v4.0.0（2026-02-24）
-
-1. **架构简化**：完全移除网关模拟器，使用纯 iptables NAT 网关转发
-2. **直接发送**：IoT设备直接发送数据到目标主机，通过 iot3 的 NAT 转发
-3. **控制器优化**：简化流表下发逻辑，确保所有IP数据包正确处理
-4. **所有文档更新**：反映最新的纯NAT网关架构
-
-### 📊 拓扑结构（纯NAT网关模式）
-
-```
-iot1 (192.168.2.10) ─┐
-iot2 (192.168.3.11) ───┼── iot3 (NAT网关) ─── s1 ─── s2 ─── h1, h2
-iot4 (192.168.4.13) ──┘
-```
-
-**子网配置**：
-- iot1: 192.168.2.10/24，网关 192.168.2.1
-- iot2: 192.168.3.11/24，网关 192.168.3.1
-- iot4: 192.168.4.13/24，网关 192.168.4.1
-- iot3: 4 个接口，分别连接 s1、iot1、iot2、iot4，启用 iptables NAT
-
-### 📊 数据流向
-
-```
-IoT设备 (iot1/iot2/iot4) 
-  ↓ (UDP/5005 直接发送到 h1/h2)
-iot3 (NAT网关 - iptables转发)
-  ↓ (IP转发和NAT)
-s1 (OpenFlow13交换机)  ← 控制器下发流表
-  ↓ (OpenFlow协议)
-s2 (OpenFlow13交换机)  ← 控制器下发流表
-  ↓ (UDP/5005)
-h1/h2 (监控主机)
-```
-
-### 测试命令
-
-#### 方式一：通过网关模拟器（推荐）
-```bash
-# 1. 在 h1 上启动监听
-mininet> xterm h1
-nc -ul 5005
-
-# 2. 从 iot4 发送数据到 iot3 网关
-mininet> iot4 echo "aa:bb:cc:dd:ee:04,pos,(30.12,120.45)" | nc -u 192.168.1.12 5005
-
-# 3. iot3 网关模拟器会自动转发到 h1
-```
-
-#### 方式二：直接发送（需要 iptables NAT）
-```bash
-# 测试iot1 → h1（直接发送到h1）
-mininet> iot1 echo "aa:bb:cc:dd:ee:01,temp,25.5" | nc -u 192.168.1.20 5005
-
-# 测试iot2 → h2（直接发送到h2）
-mininet> iot2 echo "aa:bb:cc:dd:ee:02,humidity,65.3" | nc -u 192.168.1.21 5005
-
-# 测试iot4 → h1（直接发送到h1）
-mininet> iot4 echo "aa:bb:cc:dd:ee:04,pos,(30.12,120.45)" | nc -u 192.168.1.20 5005
-```
+未完成项、根因与实施路线见 [问题.md](问题.md)。
 
 ## 目录结构
 
 ```
-ryu_extend/
-├── switch/                 # 控制器扩展模块
-│   ├── ble_switch_13.py    # BLE Mesh交换机控制器（已优化）
-│   ├── extensions/          # OpenFlow扩展字段实现
-│   │   ├── manager.py       # 扩展字段管理器
-│   │   ├── sensor_field.py  # 传感器类型字段
-│   │   ├── priority_field.py # 设备优先级字段
-│   │   ├── route_field.py   # 路由选择字段
-│   │   └── base_field.py    # 基类定义
-│   └── test/               # 测试脚本
-├── templates/              # Web监控面板
-│   ├── sdn_dashboard.py    # 后端服务
-│   └── dashboard.html      # 前端界面
-├── topology/               # 网络拓扑脚本
-│   └── iot_sdn_topology.py # Mininet拓扑定义（已更新，移除网关模拟器）
-├── scripts/                # 辅助脚本
-├── docx/                   # 项目文档
-├── start_project.sh        # 一键启动脚本
-├── run_tests.sh           # 测试脚本
-└── core_ctl.sh            # 核心控制脚本
+SDN_IOT/
+├── gateway/                     # IoT 网关（UDP 收数、BLE 编码、IP 转发）
+│   ├── iot_gateway_enhanced.py  # 入口：收数/解析/转发/上报
+│   ├── core/                    # 网关核心模块
+│   │   ├── ofproto_client.py    # switch 端 OpenFlow 1.3 客户端（已接入）
+│   │   ├── of_gateway_agent.py  # 网关 OF 代理：握手/重连、PacketIn、本地流表
+│   │   ├── probe_bridge.py      # XDP 探针 ↔ 网关流表/控制器回路（Unix socket）
+│   │   └── qos.py               # 逐包优先级：SO_PRIORITY + DSCP
+│   ├── tools/                   # 辅助工具
+│   │   ├── ble_injector.py      # 无硬件 BLE 数据注入（模拟 N 个设备）
+│   │   ├── ble_scanner.py       # 宿主机 BLE 扫描（bleak，可选）
+│   │   └── iot_gateway_simulator.py # 旧版模拟器，未被引用
+│   ├── xdp/                     # eBPF 入向过滤 + 流探针（实现）
+│   │   ├── gw_filter_probe.c    # XDP 程序（BCC 加载；filter + ringbuf 事件）
+│   │   ├── gw_xdp_filter.py     # 挂载 / 计数 / probe / 退场（系统 Python + root）
+│   │   └── qos_egress.sh        # 出口 HTB + DSCP 分类（tc）
+│   └── tests/                   # 所有网关测试
+│       ├── selftest.sh          # 阶段 1：filter 计数/丢弃自测（需 root）
+│       ├── selftest_probe.py    # 阶段 2–5/7：探针、限速、测量（需 root）
+│       ├── selftest_qos.py      # 阶段 6：拥塞下延迟对比（需 root）
+│       ├── test_stage4_loop.py  # 阶段 4 网关侧 OF 回路（无需 root）
+│       ├── test_gateway_of_agent.py
+│       └── test_ofproto_crosscheck.py
+├── ryu_extend/
+│   ├── switch/
+│   │   ├── ble_switch_13.py     # 主控制器（装配层）
+│   │   ├── Other_Modules/       # 转发、拓扑、流表、统计、HTTP 控制
+│   │   ├── extensions/          # Experimenter 字段与业务模型
+│   │   ├── config/              # 设备身份配置（实际使用）
+│   │   └── test/                # 分阶段测试脚本
+│   ├── topology/iot_sdn_topology.py
+│   ├── templates/               # Flask 面板 + Vue 3 前端
+│   ├── docx/                    # 项目文档
+│   ├── manage.py                # 启动 / 停止 / 状态管理
+│   └── run_tests.py
+├── requirements.txt
+└── create_venv.sh
 ```
 
-## 功能特性
+## 文档索引
 
-### 核心功能
-- **BLE数据转发**: 自动识别和转发BLE Mesh网络数据包
-- **智能流表管理**: 动态下发OpenFlow流表规则
-- **实时监控面板**: Web界面展示网络状态和设备信息
-- **日志收集**: 实时收集和展示BLE设备数据
-- **连通性检测**: 自动检测网络设备连通状态
-- **OpenFlow扩展**: 支持传感器类型、设备优先级、路由选择、应用部署、角色切换等扩展字段
-- **纯NAT网关**: 使用iptables实现网关转发，符合真实网络架构
-- **应用下发**: 提供完整的边缘应用生命周期管理（创建、部署、卸载）
-- **角色切换**: 支持设备模式动态切换（纯转发/计算混合/物联网网关）
-
-### 技术特点
-- 基于OpenFlow 1.3协议
-- 支持RESTful API接口
-- 响应式Web界面设计
-- 多线程异步处理
-- 完善的日志系统
-- Experimenter扩展机制
+| 文档 | 说明 |
+|------|------|
+| [项目概述](ryu_extend/docx/项目文档/项目概述.md) | 项目定位、拓扑、端口、技术栈、目录结构 |
+| [功能说明](ryu_extend/docx/项目文档/功能说明.md) | 各功能模块的实现位置与当前限制 |
+| [安装与启动](ryu_extend/docx/项目文档/安装与启动.md) | 环境安装、启动顺序、故障排查 |
+| [更新日志](ryu_extend/docx/项目文档/更新日志.md) | 版本演进 |
+| [测试文档](ryu_extend/docx/测试文档/测试文档.md) | 基础网络与数据传输测试 |
+| [测试文档_增强版](ryu_extend/docx/测试文档/测试文档_增强版.md) | 功能与集成测试用例 |
+| [边缘应用管理测试文档](ryu_extend/docx/测试文档/边缘应用管理测试文档.md) | 面板接口测试（内存模型） |
+| [设备角色切换测试文档](ryu_extend/docx/测试文档/设备角色切换测试文档.md) | 面板接口测试（内存模型） |
+| [OpenFlow 协议扩展说明](ryu_extend/switch/OpenFlow协议扩展说明.md) | Experimenter 字段格式与编解码 |
+| [问题日志](问题.md) | 已知问题、根因与后续路线 |
 
 ## 快速开始
 
-### 环境要求
-- Ubuntu 20.04 LTS 或更高版本
-- Python 3.8+
-- Ryu控制器 4.34
-- Mininet 2.3.0
-- Open vSwitch 2.13+
-
-### 安装依赖
-
 ```bash
-# 安装 Ryu 控制器
-pip install ryu
+cd SDN_IOT
+source .venv/bin/activate
 
-# 安装 Mininet (Ubuntu/Debian)
-sudo apt-get install mininet
+# 启动控制器、Flask 面板、网关、Vue 前端
+python3 ryu_extend/manage.py start
 
-# 或者从源码安装 Ryu (推荐用于开发)
-git clone https://github.com/faucetsdn/ryu.git
-cd ryu
-pip install .
-```
-
-### 手动部署
-
-1. **启动控制器**
-```bash
+# 拓扑需要单独启动（manage.py start 不包含拓扑）
 cd ryu_extend
-ryu-manager switch/ble_switch_13.py --verbose --ofp-tcp-listen-port 6634
-```
-
-2. **启动Web面板**
-```bash
-python3 templates/sdn_dashboard.py
-```
-
-3. **启动网络拓扑**
-```bash
-sudo python3 topology/iot_sdn_topology.py
-```
-
-## 使用说明
-
-### 访问监控面板
-启动成功后，访问 `http://localhost:5000` 查看监控界面
-
-### 数据传输测试
-
-#### 步骤1：在目标主机启动监听
-```bash
-mininet> xterm h1 h2
-
-# 在h1窗口输入
-nc -ul 5005
-
-# 在h2窗口输入
-nc -ul 5005
-```
-
-#### 步骤2：测试IoT设备
-```bash
-# 测试iot1 → h1（直接发送到h1）
-mininet> iot1 echo "aa:bb:cc:dd:ee:01,temp,25.5" | nc -u 192.168.1.20 5005
-
-# 测试iot2 → h2（直接发送到h2）
-mininet> iot2 echo "aa:bb:cc:dd:ee:02,humidity,65.3" | nc -u 192.168.1.21 5005
-
-# 测试iot4 → h1（直接发送到h1）
-mininet> iot4 echo "aa:bb:cc:dd:ee:04,pos,(30.12,120.45)" | nc -u 192.168.1.20 5005
-```
-
-### API接口
-
-#### 接收BLE日志
-```
-POST /api/logs
-Content-Type: application/json
-
-{
-    "ble_addr": "aa:bb:cc:dd:ee:01",
-    "type": "temperature",
-    "value": "25.6",
-    "src_ip": "192.168.1.10"
-}
-```
-
-#### 健康检查
-```
-GET /health
-```
-
-### 网络拓扑命令行参数
-
-```bash
-# 基本使用
 sudo python3 topology/iot_sdn_topology.py
 
-# 指定控制器地址
-sudo python3 topology/iot_sdn_topology.py --controller-ip 192.168.1.100 --controller-port 6653
+# 另开终端，回到项目根目录
+cd ..
 
-# 调试模式
-sudo python3 topology/iot_sdn_topology.py --debug
+# 无硬件验证：模拟 3 个 BLE 设备，数据发往 iot3 网关的 5005
+python3 gateway/tools/ble_injector.py --target 192.168.1.12 --port 5005
 
-# 不清理现有网络
-sudo python3 topology/iot_sdn_topology.py --no-cleanup
+# 有 BLE 硬件时：宿主机扫描真实广播（需 pip install bleak）
+python3 gateway/tools/ble_scanner.py --target 192.168.1.12 --port 5005 --verbose
+
+# 本机链路测试（不需要 root、Mininet 或 BLE 硬件）
+python3 ryu_extend/switch/test/v4_全链路/test_extension_chain.py
+python3 ryu_extend/switch/test/v4_全链路/test_ble_chain_e2e.py
+python3 gateway/tests/test_ofproto_crosscheck.py
+python3 gateway/tests/test_gateway_of_agent.py
 ```
 
-## 架构说明
+访问：
 
-### 数据流向（纯NAT网关模式）
-```
-IoT设备(iot1/iot2/iot4) → iot3(NAT网关) → OpenFlow交换机(s1/s2) → 监控主机(h1/h2)
-  ↓                           ↓                              ↓
-直接发送目标IP        iptables NAT转发              控制器下发流表
-```
+- 普通面板（Jinja2 + API）：http://localhost:5000
+- Vue 开发服务器：http://localhost:5173
+- 控制器日志：`ryu_extend/logs/controller.log`
 
-### 组件交互
-1. **IoT设备**（iot1/iot2/iot4）通过UDP端口5005直接发送数据到目标主机（h1/h2）
-2. **iot3网关**使用iptables NAT和IP转发功能转发数据包
-3. **交换机(s1/s2)** 捕获数据包并发送给Ryu控制器
-4. **控制器**解析数据包并下发流表规则
-5. **Web面板**通过API接收日志并在前端展示
-6. **连通性检测**通过OVS流表分析网络状态
+## eBPF / XDP 网关过滤、流探针与优先级（阶段 1–7）
 
-## OpenFlow扩展字段说明
+在 iot3 面向数据源的 veth（`iot3-eth0/1/2`）上挂 XDP：对入向包分类计数，
+`cfg[0] bit0=1` 时才丢弃非 5005 的 UDP。UDP 5005 命中 eBPF 缓存时直接
+PASS；未命中时经 ringbuf 上报（写 1 秒 PENDING 冷却，同流只报一次），探针经
+`probe_bridge.py` 查网关本地缓存或上报控制器，拿到结果后写回 eBPF 缓存 READY
+（TTL 老化，全局上限 50 次/s）。eBPF 只做过滤和事件，不做转发、不解析 BLE
+文本、不算业务优先级；优先级由 Python 算好后用 `SO_PRIORITY` + DSCP 逐包标记，
+出口 `qos_egress.sh` 用 HTB 按 DSCP 调度。
 
-### 支持的扩展字段
+Python 版用 BCC 加载（不需要 clang CLI），必须 **root + 系统 Python**，
+并在 iot3 命名空间内运行：
 
-| 字段名称 | 字段ID | 说明 |
-|----------|--------|------|
-| SensorType | 1 | 传感器类型（温度、湿度、光照等） |
-| DevicePriority | 2 | 设备优先级（1-5级） |
-| RouteSelect | 3 | 路由选择（路径A、路径B） |
-| AppDeployment | 4 | 应用部署字段（应用ID、版本、部署状态） |
-| RoleSwitch | 5 | 角色切换字段（设备模式、切换状态） |
-
-### 传感器类型
-- 1: 温度传感器
-- 2: 湿度传感器
-- 3: 光照传感器
-- 4: 移动传感器
-- 5: 压力传感器
-- 6: 气体传感器
-- 7: 声音传感器
-
-### 优先级级别
-- 1: 低优先级
-- 2: 普通优先级
-- 3: 高优先级
-- 4: 关键优先级
-- 5: 紧急优先级
-
-## 配置说明
-
-### 控制器配置 (ble_switch_13.py)
-- `BLE_ADDR_MATCH`: BLE地址匹配字段
-- `BLE_OUTPUT_ACTION`: BLE输出动作
-- `MY_EXPERIMENTER_ID`: 实验者ID (0xdeadbeef)
-
-### Web面板配置 (sdn_dashboard.py)
-- `DEVICES`: 网络设备定义
-- `GATEWAY_LOG`: 网关日志缓存
-- `S1_LOG`: s1交换机日志缓存
-- `S2_LOG`: s2交换机日志缓存
-
-### 拓扑配置 (iot_sdn_topology.py)
-- `ip_map`: 各主机的IP地址配置（h1, h2）
-- iot1/iot2/iot4 配置不同子网的IP地址
-- iot3 网关配置4个接口，启用IP转发功能和iptables NAT规则
-
-## 故障排除
-
-### 常见问题
-
-1. **控制器无法启动**
-   - 检查Ryu是否正确安装
-   - 确认端口6634未被占用
-   - 查看控制器日志文件
-
-2. **Web面板无法访问**
-   - 检查5000端口是否开放
-   - 确认防火墙设置
-   - 查看dashboard.log日志
-
-3. **网络连通性问题**
-   - 使用`sudo mn -c`清理网络
-   - 检查OVS服务状态
-   - 验证控制器连接
-   - 检查iot3网关的IP转发功能是否启用
-   - 确认各设备的默认网关配置正确
-
-4. **网关转发问题**
-   - 检查iot3的sysctl配置：`sysctl net.ipv4.ip_forward`
-   - 验证iot3的4个接口IP配置正确
-   - 检查各IoT设备的默认网关指向iot3
-   - 使用ping测试各子网之间的连通性
-   - 查看网关日志：`tail -f /tmp/iot_gateway_simulator.log`
-
-5. **IoT设备无法发送数据**
-   - 确认数据直接发送到目标主机（h1: 192.168.1.20, h2: 192.168.1.21）
-   - 检查iot3的iptables NAT规则是否正确配置
-   - 使用ping测试各设备之间的连通性
-
-### 日志文件位置
-- 控制器日志: `~/ryucontronl/logs/controller.log`
-- Web面板日志: `~/ryucontronl/logs/dashboard.log`
-- 拓扑日志: `~/ryucontronl/logs/topology.log`
-
-### 调试命令
 ```bash
-# 查看交换机流表
-ovs-ofctl dump-flows s1 -O OpenFlow13
+# Mininet CLI 里（拓扑是 root 启动的，直接进 iot3 命名空间）
+# 只过滤：ringbuf 事件仅打日志
+mininet> iot3 /usr/bin/python3 /home/zhang/桌面/sdn/SDN_IOT/gateway/xdp/gw_xdp_filter.py --interval 2 --no-probe
+# 完整探针：连网关 ProbeBridge（默认 /tmp/sdn_xdp_probe.sock）
+mininet> iot3 /usr/bin/python3 /home/zhang/桌面/sdn/SDN_IOT/gateway/xdp/gw_xdp_filter.py --interval 2
 
-# 查看控制器连接
-ovs-vsctl show | grep Controller
+# 出口优先级（拥塞时才有效果）：iot3 面向 s1 的接口
+mininet> iot3 /home/zhang/桌面/sdn/SDN_IOT/gateway/xdp/qos_egress.sh setup eth3 1000
 
-# 在h1启动监听
-xterm h1 nc -ul 5005
+# 不依赖 Mininet 的自测（需 root；阶段 2–7 需要 BCC）
+sudo ./gateway/tests/selftest.sh                  # 阶段 1
+sudo /usr/bin/python3 ./gateway/tests/selftest_probe.py --stage 2   # 2/3/4/5/7
+sudo /usr/bin/python3 ./gateway/tests/selftest_qos.py               # 阶段 6
+.venv/bin/python ./gateway/tests/test_stage4_loop.py                # 阶段 4 控制器回路
 
-# 抓包分析
-mininet> iot3 xterm
-# 然后运行: tcpdump -i any -n 'udp port 5005'
+# 退场（PID 要指向 iot3 里的网关进程，可先 nsenter 进去 ip link 确认 iot3-eth0）
+sudo nsenter -t "$(pgrep -f iot_gateway_enhanced.py | head -1)" -n \
+  /usr/bin/python3 /home/zhang/桌面/sdn/SDN_IOT/gateway/xdp/gw_xdp_filter.py --detach-only
 ```
 
-## 开发指南
+### Go 版用户态探针（可选）
 
-### 代码规范
-- 使用Python 3标准库
-- 遵循PEP 8编码规范
-- 添加适当的日志记录
-- 编写清晰的注释
+数据面仍是 C，用户态换成 Go + `cilium/ebpf`，单二进制、不依赖 BCC：
 
-### 扩展建议
-1. 添加更多传感器类型支持
-2. 实现数据持久化存储
-3. 增加安全认证机制
-4. 支持多控制器部署
-5. 实现NETCONF协议协同
-6. 添加路径规划算法
+```bash
+cd gateway/xdp/goprobe
+make
 
-### 添加新的扩展字段
-1. 在 `switch/extensions/` 中创建新的字段类
-2. 继承 `IoTExtensionField` 基类
-3. 实现 `serialize()` 和 `parse()` 方法
-4. 在 `manager.py` 中注册新字段
+# 在 iot3 命名空间内运行（--ifaces 用逗号分隔）
+sudo ip netns exec iot3 ./gw-xdp-go --ifaces iot3-eth0,iot3-eth1,iot3-eth2
 
-## 历史更新
+# 最小自测（需要 root）
+sudo ./selftest_go.sh
+```
 
-### v4.2 (2026-02-26)
-- ✅ 新增应用下发功能（应用创建、部署、卸载）
-- ✅ 新增角色切换功能（纯转发/计算混合/物联网网关模式）
-- ✅ 新增应用部署和角色切换扩展字段
-- ✅ 创建详细的功能实现文档
-- ✅ 更新所有相关文档
+- C 程序在 `gateway/xdp/goprobe/bpf/gw_filter_probe.c`，是 libbpf 写法；
+- 与 Python 版**二选一**，不要同时挂同一接口；切换前先 `--detach-only`；
+- 性能与 Python/BCC 版相同，收益只是部署更干净（单二进制）。
 
-### v4.1 (2026-02-25)
-- ✅ 修复拓扑可视化显示问题
-- ✅ iot1/iot2/iot4 现在正确连接到 iot3 网关
-- ✅ 优化控制器流表处理逻辑
-- ✅ 恢复拓扑文件原始版本
-- ✅ 明确两种数据传输方式
+注意：XDP 挂在 iot3-eth0/1/2，只有从 iot1/2/4 发往网关的包会经过它；从宿主机
+直接发给 192.168.1.12 的包走 iot3-eth3，不经过这个过滤点（要测就 `mininet> iot1
+python3 /home/zhang/桌面/sdn/SDN_IOT/gateway/tools/ble_injector.py --target 192.168.2.1`）。
 
-### v4.0 (2026-02-24)
-- ✅ 完全移除网关模拟器，简化架构
-- ✅ 使用纯iptables NAT网关转发
-- ✅ IoT设备直接发送到目标主机
-- ✅ 优化控制器流表逻辑
-- ✅ iot1/iot4现在可以正常发送数据到h1
-- ✅ 更新所有文档
+状态（2026-11-17，全部在隔离特权容器 / 宿主机 venv 完成，宿主机网络与
+Mininet 未被改动；数字只对 veth + copy 模式有效）：
 
-### v3.1 (2026-02-24)
-- ✅ 网关模拟器完全重写，实现完整接收和转发功能
-- ✅ 智能转发（按设备地址）
-- ✅ 更新所有文档
+- **阶段 1**（`selftest.sh`）：1000 个 5005 包 `flow_miss=1 + flow_cached=999`
+  且接收端收到 1000；`non_5005=50`、`parse_error=0`；开 cfg 后非 5005
+  `dropped=100`、5005 不受影响；双接口挂载与退出回滚通过。
+- **阶段 2**（`--stage 2`）：1000 包只产生 2 个事件（1 秒冷却过期后再报一次），
+  `flow_cached=999`，接收 1001。
+- **阶段 3**（`--stage 3`）：网关本地缓存 ready 后写 eBPF 缓存，1 个事件 / 1 次 resolve /
+  1 次 eBPF 缓存写入，其余 999 包 0 事件，接收 1000。
+- **阶段 4**（`--stage 4` + `test_stage4_loop.py`）：pending → 控制器
+  PacketIn → FlowMod → 网关本地缓存写入 → `flow_ready` → eBPF 缓存写入；真实 OF 1.3 握手与
+  FlowMod DELETE 同步均验证，接收 550。
+- **阶段 5**（`--stage 5`）：TTL=2 s 时 62 包只重新触发 1 次；1000 个不同
+  5 元组在 6 ms 内注入，resolve 恰好 50 次、`rate_limited=950`、数据不丢。
+- **阶段 6**（`selftest_qos.py`）：HTB 1 Mbit 下 EF 平均 176 ms / 普通 632 ms；
+  空闲链路两者均 0.5 ms，移除 qdisc 后恢复 1.3 ms（无假优势）。
+- **阶段 7**（`--stage 7`）：filter-only 与 filter+probe 各 5000 包全部接收，
+  命中率 0.9998，probe 仅 1 个事件；`UdpRcvbufErrors=0`。
 
-### v3.0 (2026-02-24)
-- ✅ 拓扑结构升级为传统网关模式
-- ✅ iot3网关功能增强，启用IP转发
-- ✅ 多子网架构，不同设备位于不同子网
-- ✅ 优化连通性测试逻辑
-- ✅ 更新所有文档
+注意：`ip link set dev X xdp off` 等价于 flags=0，摘不掉用 `--mode skb`
+显式挂载的程序；加载器已改为按挂载模式的 flags 调 `bpf_attach_xdp(dev,-1,flags)`
+摘除，并校验接口上确实没有 XDP 才报“已摘除”。
 
-### v2.0 (2026-02-22)
-- ✅ 重构拓扑结构，所有设备连接到s1交换机
-- ✅ 修复iot3多接口同IP问题
-- ✅ 优化网络配置和连通性测试
-- ✅ 更新文档和目录结构
+## 端口
 
-### v1.0 (初始版本)
-- 基础SDN IoT框架
-- BLE数据转发功能
-- Web监控面板
-- OpenFlow扩展字段基础实现
+| 端口 | 用途 |
+|------|------|
+| 6634 | Ryu 控制器（OpenFlow 1.3） |
+| 5000 | Flask API / 面板 |
+| 5173 | Vue 开发服务器 |
+| 5005 | IoT 数据 UDP 端口 |
+| 6650 | 网关属性上报 UDP（控制器内置接收器） |
+| 16634 | 控制器内部控制 HTTP（仅 127.0.0.1） |
 
-## 许可证
+## 版本
 
-本项目仅供学习和研究使用。
-
-## 联系方式
-
-如有问题或建议，请提交issue或联系项目维护者。
+当前文档对应代码版本 v4.5.2，最后更新 2026-11-17。

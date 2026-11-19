@@ -1,0 +1,103 @@
+--- a/lib/ofp-actions.c
++++ b/lib/ofp-actions.c
+@@ -5892,6 +5892,33 @@
+ };
+ OFP_ASSERT(sizeof(struct nx_action_note) == 16);
+ 
++/* OpenFlow 1.3 experimenter action carrying IoT metadata.
++ *
++ * Vendor IOT_EXPERIMENTER_ID (0x12345678) is not one of the vendors that
++ * Open vSwitch natively knows, so without this it would be rejected with
++ * OFPBAC_BAD_VENDOR.  We accept it and preserve its payload as an
++ * OFPACT_NOTE, prefixed with the vendor ID.  The prefix lets format_NOTE()
++ * and encode_NOTE() reproduce the original experimenter action. */
++#define IOT_OFPAT_EXPERIMENTER 0xffff
++#define IOT_EXPERIMENTER_ID    0x12345678u
++
++struct ofp_action_experimenter_iot {
++    ovs_be16 type;                  /* IOT_OFPAT_EXPERIMENTER. */
++    ovs_be16 len;
++    ovs_be32 experimenter;          /* IOT_EXPERIMENTER_ID. */
++    uint8_t data[];
++};
++OFP_ASSERT(sizeof(struct ofp_action_experimenter_iot) == 8);
++
++static bool
++note_is_iot(const struct ofpact_note *note)
++{
++    static const uint8_t vendor[4] = { 0x12, 0x34, 0x56, 0x78 };
++
++    return note->length >= sizeof vendor
++           && !memcmp(note->data, vendor, sizeof vendor);
++}
++
+ static enum ofperr
+ decode_NXAST_RAW_NOTE(const struct nx_action_note *nan,
+                       enum ofp_version ofp_version OVS_UNUSED,
+@@ -5917,6 +5944,17 @@
+     size_t start_ofs = out->size;
+     struct nx_action_note *nan;
+ 
++    if (note_is_iot(note)) {
++        struct ofp_action_experimenter_iot *a;
++
++        a = ofpbuf_put_zeros(out, sizeof *a);
++        a->type = htons(IOT_OFPAT_EXPERIMENTER);
++        a->experimenter = htonl(IOT_EXPERIMENTER_ID);
++        ofpbuf_put(out, note->data + 4, note->length - 4);
++        pad_ofpat(out, start_ofs);
++        return;
++    }
++
+     put_NXAST_NOTE(out);
+     out->size = out->size - sizeof nan->note;
+ 
+@@ -5949,6 +5987,14 @@
+ format_NOTE(const struct ofpact_note *a,
+             const struct ofpact_format_params *fp)
+ {
++    if (note_is_iot(a)) {
++        ds_put_format(fp->s, "%sexperimenter(0x%08x,%s",
++                      colors.param, IOT_EXPERIMENTER_ID, colors.end);
++        ds_put_hex_with_delimiter(fp->s, a->data + 4, a->length - 4, "");
++        ds_put_char(fp->s, ')');
++        return;
++    }
++
+     ds_put_format(fp->s, "%snote:%s", colors.param, colors.end);
+     ds_put_hex_with_delimiter(fp->s, a->data, a->length, ".");
+ }
+@@ -8004,6 +8050,33 @@
+         size_t act_len = 0;
+         uint64_t arg;
+ 
++        const struct ofp_action_experimenter_iot *iot = openflow->data;
++
++        if (iot->type == htons(IOT_OFPAT_EXPERIMENTER)
++            && ntohl(iot->experimenter) == IOT_EXPERIMENTER_ID) {
++            unsigned int len = ntohs(iot->len);
++            struct ofpact_note *note;
++
++            if (len < sizeof *iot || len > openflow->size
++                || len % OFP_ACTION_ALIGN) {
++                error = OFPERR_OFPBAC_BAD_LEN;
++                *bad_action_offset = decoded_len;
++                goto done;
++            }
++
++            note = ofpact_put_NOTE(ofpacts);
++            note->length = len - 4;   /* vendor ID + payload */
++            ofpbuf_put(ofpacts, "\x12\x34\x56\x78", 4);
++            ofpbuf_put(ofpacts, (const uint8_t *) iot + sizeof *iot,
++                       len - sizeof *iot);
++            note = ofpacts->header;
++            ofpact_finish_NOTE(ofpacts, &note);
++
++            ofpbuf_pull(openflow, len);
++            decoded_len += len;
++            continue;
++        }
++
+         error = ofpact_pull_raw(openflow, ofp_version, &raw, &arg, &act_len);
+         if (!error) {
+             error = ofpact_decode(action, raw, ofp_version, arg, vl_mff_map,

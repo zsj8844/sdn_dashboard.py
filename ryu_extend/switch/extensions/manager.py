@@ -5,11 +5,12 @@ IoT扩展字段管理器
 
 import struct
 from .constants import EXPERIMENTER_ID
-from .sensor_field import SensorTypeField
-from .priority_field import DevicePriorityField
-from .route_field import RouteSelectField
-from .app_field import AppDeploymentField
-from .role_field import RoleSwitchField
+from .fields.base_field import BaseField, TLV_HEADER_SIZE
+from .fields.sensor_field import SensorTypeField
+from .fields.priority_field import DevicePriorityField
+from .fields.route_field import RouteSelectField
+from .fields.app_field import AppDeploymentField
+from .fields.role_field import RoleSwitchField
 
 class IoTExtensionManager:
     """IoT扩展字段管理器"""
@@ -21,14 +22,21 @@ class IoTExtensionManager:
         """添加字段"""
         self.fields.append(field)
     
+    def serialize_fields(self):
+        """仅序列化字段数据（不含 Experimenter ID 头），用于 OFPActionExperimenter"""
+        data = struct.pack('!B', len(self.fields))
+        for field in self.fields:
+            data += field.serialize()
+        return data
+
     def serialize_to_experimenter(self):
         """序列化为Experimenter字段格式"""
         # 构造数据: 厂商ID(4B) + 字段数(1B) + 字段数据
         data = struct.pack('!IB', EXPERIMENTER_ID, len(self.fields))
-        
+
         for field in self.fields:
             data += field.serialize()
-        
+
         return data
     
     @classmethod
@@ -53,38 +61,25 @@ class IoTExtensionManager:
         }
         
         for i in range(field_count):
-            if len(buf) < 6:
+            if len(buf) < TLV_HEADER_SIZE:
                 break
-            field_type = buf[0]
+            field_type, field_length, _reserved = BaseField.read_header(buf)
+            # 长度必须至少覆盖头部，且不能超出剩余数据，否则流已失步
+            if field_length < TLV_HEADER_SIZE or field_length > len(buf):
+                break
             field_class = field_classes.get(field_type)
             if field_class:
-                field = field_class.parse(buf)
+                field = field_class.parse(buf[:field_length])
                 manager.add_field(field)
-            buf = buf[6:]
-        
+            buf = buf[field_length:]
+
         return manager
     
     def get_field_dict(self):
         """获取字段字典"""
         result = {}
         for field in self.fields:
-            if isinstance(field, SensorTypeField):
-                result['sensor_type'] = field.value
-            elif isinstance(field, DevicePriorityField):
-                result['device_priority'] = field.value
-            elif isinstance(field, RouteSelectField):
-                result['route_select'] = field.value
-            elif isinstance(field, AppDeploymentField):
-                result['app_deployment'] = {
-                    'app_id': field.app_id,
-                    'action': field.action,
-                    'version': field.version
-                }
-            elif isinstance(field, RoleSwitchField):
-                result['role_switch'] = {
-                    'target_mode': field.target_mode,
-                    'force': field.force
-                }
+            result.update(field.to_dict_entry())
         return result
     
     def print_fields(self):

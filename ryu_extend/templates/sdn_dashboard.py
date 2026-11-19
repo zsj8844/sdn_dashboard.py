@@ -2,12 +2,33 @@ from flask import Flask, render_template, jsonify, request
 import subprocess
 import threading
 import time
+import requests
 from collections import deque, defaultdict
 import logging
 import json
+import sys
+import os
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../switch')))
+from extensions import (
+    AppDeploymentManager, EdgeApplication, AppType, AppStatus,
+    DeviceRoleManager, DeviceMode, DeviceCapabilities
+)
+from Other_Modules import config_manager
 
 # 配置日志
-logging.basicConfig(level=logging.INFO)
+log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../logs')
+os.makedirs(log_dir, exist_ok=True)
+log_file = os.path.join(log_dir, 'controller.log')
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(log_file, encoding='utf-8'),
+        logging.StreamHandler()
+    ]
+)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__, template_folder='.')
@@ -49,6 +70,12 @@ PORT_STATS = defaultdict(list)
 FLOW_STATS = defaultdict(list)
 TABLE_STATS = defaultdict(dict)
 CURRENT_FLOWS = defaultdict(dict)
+
+APP_DEPLOYMENT_MANAGER = AppDeploymentManager()
+DEVICE_ROLE_MANAGER = DeviceRoleManager()
+
+# IoT扩展字段存储
+IOT_EXTENSION_DATA = None
 
 def get_switch_flows(switch_name):
     try:
@@ -230,19 +257,55 @@ def receive_s2_logs():
         logger.error(f"接收S2日志失败: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+def get_gateway_logs():
+    """从gateway.log文件读取最新的100行日志"""
+    try:
+        log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../logs/gateway.log')
+        # 如果当前路径没有，尝试另一个常见路径
+        if not os.path.exists(log_path):
+            log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../logs/gateway.log')
+            
+        if os.path.exists(log_path):
+            with open(log_path, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+                # 过滤空行并倒序返回（最新的在前）
+                logs = [line.strip() for line in lines if line.strip()]
+                return list(reversed(logs[-100:]))
+        return list(GATEWAY_LOG)
+    except Exception as e:
+        logger.error(f"读取网关日志失败: {e}")
+        return list(GATEWAY_LOG)
+
 @app.route("/api/data")
 def api_data():
     return jsonify({
         "ble_mesh": {
             "nodes": BLE_MESH_NODES
         },
-        "gateway_logs": list(GATEWAY_LOG),
+        "gateway_logs": get_gateway_logs(),
         "s1_logs": list(S1_LOG),
         "s2_logs": list(S2_LOG),
         "s1_flows": get_switch_flows("s1")[:10],
         "s2_flows": get_switch_flows("s2")[:10],
-        "switches_status": SWITCHES_STATUS.copy()
+        "switches_status": SWITCHES_STATUS.copy(),
+        "iot_extension": IOT_EXTENSION_DATA
     })
+
+@app.route('/api/iot-extension', methods=['GET', 'POST'])
+def iot_extension_api():
+    if request.method == 'POST':
+        try:
+            global IOT_EXTENSION_DATA
+            extension_data = request.json
+            IOT_EXTENSION_DATA = extension_data
+            IOT_EXTENSION_DATA['timestamp'] = time.time()
+            logger.info(f"接收IoT扩展字段: {extension_data}")
+            return jsonify({"status": "success"}), 200
+        except Exception as e:
+            logger.error(f"接收IoT扩展字段失败: {e}")
+            return jsonify({"status": "error", "message": str(e)}), 500
+    else:
+        return jsonify(IOT_EXTENSION_DATA or {})
 
 @app.route('/api/clear-data', methods=['POST'])
 def clear_data():
@@ -250,6 +313,8 @@ def clear_data():
         GATEWAY_LOG.clear()
         S1_LOG.clear()
         S2_LOG.clear()
+        global IOT_EXTENSION_DATA
+        IOT_EXTENSION_DATA = None
         for node in BLE_MESH_NODES:
             node["status"] = "离线"
             node["rssi"] = -100
@@ -276,6 +341,17 @@ def topology_api():
             return jsonify({"status": "error", "message": str(e)}), 500
     else:
         return jsonify(TOPOLOGY)
+
+@app.route('/api/topology/refresh', methods=['POST'])
+def topology_refresh():
+    """前端点击刷新按钮 → 触发控制器 LLDP 重新发现"""
+    try:
+        resp = requests.post('http://127.0.0.1:16634/refresh', timeout=3)
+        logger.info("LLDP 刷新触发成功: %s", resp.json())
+        return jsonify({"status": "success", "message": "拓扑刷新已触发"})
+    except Exception as e:
+        logger.error(f"LLDP 刷新触发失败: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 # ============ 新增功能：统计数据API ============
 @app.route('/api/stats', methods=['GET', 'POST'])
@@ -307,6 +383,20 @@ def stats_api():
         })
 
 # ============ 新增功能：流表管理API ============
+def convert_match_keywords(match_str):
+    keyword_map = {
+        'ipv4_src': 'nw_src',
+        'ipv4_dst': 'nw_dst',
+        'tcp_src': 'tp_src',
+        'tcp_dst': 'tp_dst',
+        'udp_src': 'tp_src',
+        'udp_dst': 'tp_dst'
+    }
+    for ryu_key, ovs_key in keyword_map.items():
+        match_str = match_str.replace(ryu_key, ovs_key)
+    return match_str
+
+
 @app.route('/api/flows', methods=['GET', 'POST', 'DELETE'])
 def flows_api():
     if request.method == 'POST':
@@ -322,6 +412,8 @@ def flows_api():
             table_id = flow_data.get('table_id', 0)
             match_str = flow_data.get('match', '')
             actions_str = flow_data.get('actions', 'output:2')
+            
+            match_str = convert_match_keywords(match_str)
             
             cmd = [
                 "sudo", "ovs-ofctl", "add-flow", switch_name, "-O", "OpenFlow13",
@@ -377,12 +469,295 @@ def flows_api():
                 's2_flows': get_switch_flows('s2')
             })
 
+# ============ 新增功能：边缘应用管理API ============
+@app.route('/api/apps', methods=['GET', 'POST'])
+def apps_api():
+    if request.method == 'POST':
+        try:
+            app_data = request.json
+            app_id = app_data.get('app_id')
+            app_name = app_data.get('app_name')
+            app_type = AppType(app_data.get('app_type'))
+            app_code = app_data.get('app_code')
+            version = app_data.get('version', '1.0.0')
+            description = app_data.get('description', '')
+            
+            app = APP_DEPLOYMENT_MANAGER.create_application(
+                app_id, app_name, app_type, app_code, version, description)
+            logger.info(f"创建应用成功: {app_id} - {app_name}")
+            return jsonify({"status": "success", "app": app.to_dict()}), 200
+        except Exception as e:
+            logger.error(f"创建应用失败: {e}")
+            return jsonify({"status": "error", "message": str(e)}), 400
+    else:
+        apps = APP_DEPLOYMENT_MANAGER.list_applications()
+        return jsonify({"apps": [app.to_dict() for app in apps]})
+
+
+@app.route('/api/apps/<app_id>', methods=['GET', 'DELETE'])
+def app_detail_api(app_id):
+    if request.method == 'DELETE':
+        try:
+            app = APP_DEPLOYMENT_MANAGER.get_application(app_id)
+            if not app:
+                return jsonify({"status": "error", "message": f"应用 {app_id} 不存在"}), 404
+            del APP_DEPLOYMENT_MANAGER.applications[app_id]
+            logger.info(f"删除应用成功: {app_id}")
+            return jsonify({"status": "success", "message": "应用已删除"}), 200
+        except Exception as e:
+            logger.error(f"删除应用失败: {e}")
+            return jsonify({"status": "error", "message": str(e)}), 500
+    else:
+        app = APP_DEPLOYMENT_MANAGER.get_application(app_id)
+        if app:
+            return jsonify(app.to_dict())
+        return jsonify({"status": "error", "message": "应用不存在"}), 404
+
+
+@app.route('/api/apps/<app_id>/deploy', methods=['POST'])
+def deploy_app_api(app_id):
+    try:
+        device_id = request.json.get('device_id')
+        if not device_id:
+            return jsonify({"status": "error", "message": "缺少设备ID"}), 400
+        record = APP_DEPLOYMENT_MANAGER.deploy_application(app_id, device_id)
+        logger.info(f"部署应用成功: {app_id} -> {device_id}")
+        return jsonify({"status": "success", "record": record}), 200
+    except Exception as e:
+        logger.error(f"部署应用失败: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 400
+
+
+@app.route('/api/apps/<app_id>/undeploy', methods=['POST'])
+def undeploy_app_api(app_id):
+    try:
+        device_id = request.json.get('device_id')
+        if not device_id:
+            return jsonify({"status": "error", "message": "缺少设备ID"}), 400
+        record = APP_DEPLOYMENT_MANAGER.undeploy_application(app_id, device_id)
+        logger.info(f"卸载应用成功: {app_id} -> {device_id}")
+        return jsonify({"status": "success", "record": record}), 200
+    except Exception as e:
+        logger.error(f"卸载应用失败: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 400
+
+
+@app.route('/api/apps/<app_id>/history', methods=['GET'])
+def app_history_api(app_id):
+    try:
+        history = APP_DEPLOYMENT_MANAGER.get_deployment_history(app_id)
+        return jsonify({"history": history})
+    except Exception as e:
+        logger.error(f"获取部署历史失败: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+# ============ 新增功能：设备角色管理API ============
+def device_to_dict(device):
+    return {
+        'device_id': device['device_id'],
+        'device_name': device['device_name'],
+        'current_mode': device['current_mode'].value,
+        'current_mode_name': device['current_mode'].name,
+        'capabilities': {
+            'cpu_cores': device['capabilities'].cpu_cores,
+            'memory_mb': device['capabilities'].memory_mb,
+            'storage_mb': device['capabilities'].storage_mb,
+            'network_ports': device['capabilities'].network_ports,
+            'supports_nat': device['capabilities'].supports_nat,
+            'supports_container': device['capabilities'].supports_container,
+            'supports_ble': device['capabilities'].supports_ble
+        },
+        'registered_at': device['registered_at'],
+        'last_mode_switch': device['last_mode_switch'],
+        'switch_count': device['switch_count']
+    }
+
+
+@app.route('/api/devices', methods=['GET', 'POST'])
+def devices_api():
+    if request.method == 'POST':
+        try:
+            data = request.json
+            device_id = data.get('device_id')
+            device_name = data.get('device_name')
+            initial_mode = DeviceMode(data.get('initial_mode', 1))
+            
+            capabilities_data = data.get('capabilities', {})
+            capabilities = DeviceCapabilities(
+                cpu_cores=capabilities_data.get('cpu_cores', 1),
+                memory_mb=capabilities_data.get('memory_mb', 512),
+                storage_mb=capabilities_data.get('storage_mb', 1024),
+                network_ports=capabilities_data.get('network_ports', 2),
+                supports_nat=capabilities_data.get('supports_nat', False),
+                supports_container=capabilities_data.get('supports_container', False),
+                supports_ble=capabilities_data.get('supports_ble', False)
+            )
+            
+            device = DEVICE_ROLE_MANAGER.register_device(
+                device_id, device_name, initial_mode, capabilities)
+            logger.info(f"注册设备成功: {device_id} - {device_name}")
+            return jsonify({"status": "success", "device": device_to_dict(device)}), 200
+        except Exception as e:
+            logger.error(f"注册设备失败: {e}")
+            return jsonify({"status": "error", "message": str(e)}), 400
+    else:
+        devices = DEVICE_ROLE_MANAGER.list_devices()
+        return jsonify({"devices": [device_to_dict(d) for d in devices]})
+
+
+@app.route('/api/devices/<device_id>', methods=['GET', 'DELETE'])
+def device_detail_api(device_id):
+    if request.method == 'DELETE':
+        try:
+            device = DEVICE_ROLE_MANAGER.get_device(device_id)
+            if not device:
+                return jsonify({"status": "error", "message": f"设备 {device_id} 不存在"}), 404
+            del DEVICE_ROLE_MANAGER.devices[device_id]
+            logger.info(f"删除设备成功: {device_id}")
+            return jsonify({"status": "success", "message": "设备已删除"}), 200
+        except Exception as e:
+            logger.error(f"删除设备失败: {e}")
+            return jsonify({"status": "error", "message": str(e)}), 500
+    else:
+        device = DEVICE_ROLE_MANAGER.get_device(device_id)
+        if device:
+            return jsonify(device_to_dict(device))
+        return jsonify({"status": "error", "message": "设备不存在"}), 404
+
+
+@app.route('/api/devices/<device_id>/switch-mode', methods=['POST'])
+def switch_device_mode_api(device_id):
+    try:
+        data = request.json
+        target_mode = DeviceMode(data.get('target_mode'))
+        force = data.get('force', False)
+        
+        record = DEVICE_ROLE_MANAGER.switch_mode(device_id, target_mode, force)
+        logger.info(f"切换设备模式成功: {device_id} -> {target_mode.name}")
+        return jsonify({"status": "success", "record": record}), 200
+    except Exception as e:
+        logger.error(f"切换设备模式失败: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 400
+
+
+@app.route('/api/devices/<device_id>/identify', methods=['POST'])
+def identify_device_mode_api(device_id):
+    try:
+        data = request.json or {}
+        traffic_pattern = data.get('traffic_pattern')
+        resource_usage = data.get('resource_usage')
+        
+        mode = DEVICE_ROLE_MANAGER.identify_device_mode(device_id, traffic_pattern, resource_usage)
+        available_modes = DEVICE_ROLE_MANAGER.get_available_modes(device_id)
+        
+        return jsonify({
+            "status": "success",
+            "identified_mode": mode.value,
+            "identified_mode_name": mode.name,
+            "available_modes": [m.value for m in available_modes],
+            "available_mode_names": [m.name for m in available_modes]
+        }), 200
+    except Exception as e:
+        logger.error(f"识别设备模式失败: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/api/devices/<device_id>/history', methods=['GET'])
+def device_switch_history_api(device_id):
+    try:
+        history = DEVICE_ROLE_MANAGER.get_switch_history(device_id)
+        return jsonify({"history": history})
+    except Exception as e:
+        logger.error(f"获取设备切换历史失败: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 # ============ 新增功能：增强版面板路由 ============
 @app.route("/enhanced")
 def enhanced_dashboard():
     return render_template("dashboard_enhanced.html", devices=DEVICES)
 
+
+# ==================== 设备身份配置 ====================
+
+@app.route('/api/device-identity/config', methods=['GET'])
+def get_device_identity_config():
+    return jsonify(config_manager.get_config())
+
+
+@app.route('/api/device-identity/config', methods=['PUT'])
+def update_device_identity_config():
+    new_config = request.json
+    if 'devices' not in new_config:
+        return jsonify({"status": "error", "message": "缺少devices字段"}), 400
+    config_manager.save_config(new_config)
+    logger.info("设备身份配置已全局更新")
+    return jsonify({"status": "success"}), 200
+
+
+@app.route('/api/device-identity/device', methods=['POST'])
+def add_device_identity():
+    data = request.json
+    ip = data.get('ip', '').strip()
+    if not ip:
+        return jsonify({"status": "error", "message": "缺少IP地址"}), 400
+    config = config_manager.get_config()
+    config['devices'][ip] = {
+        "device_id": data.get('device_id', ''),
+        "device_name": data.get('device_name', ''),
+        "device_type": data.get('device_type', 'host'),
+        "role": data.get('role', 'host'),
+        "description": data.get('description', '')
+    }
+    config_manager.save_config(config)
+    logger.info(f"添加设备身份映射: {ip} -> {data.get('device_id')}")
+    return jsonify({"status": "success"}), 200
+
+
+@app.route('/api/device-identity/device/<ip>', methods=['PUT'])
+def update_device_identity(ip):
+    data = request.json
+    config = config_manager.get_config()
+    if ip not in config['devices']:
+        return jsonify({"status": "error", "message": f"IP {ip} 不存在"}), 404
+    for field in ['device_id', 'device_name', 'device_type', 'role', 'description']:
+        if field in data:
+            config['devices'][ip][field] = data[field]
+    config_manager.save_config(config)
+    logger.info(f"更新设备身份映射: {ip}")
+    return jsonify({"status": "success"}), 200
+
+
+@app.route('/api/device-identity/device/<ip>', methods=['DELETE'])
+def delete_device_identity(ip):
+    config = config_manager.get_config()
+    if ip not in config['devices']:
+        return jsonify({"status": "error", "message": f"IP {ip} 不存在"}), 404
+    del config['devices'][ip]
+    config_manager.save_config(config)
+    logger.info(f"删除设备身份映射: {ip}")
+    return jsonify({"status": "success"}), 200
+
+
+@app.route('/api/device-identity/reload', methods=['POST'])
+def trigger_controller_reload():
+    config = config_manager.get_config()
+    from datetime import datetime
+    config['updated_at'] = datetime.now().isoformat()
+    config_manager.save_config(config)
+    logger.info("已触发控制器配置重载")
+    return jsonify({"status": "success", "message": "重载信号已发出"}), 200
+
+
 if __name__ == "__main__":
+    # 首次启动时自动生成默认设备身份配置
+    if not os.path.exists(config_manager.CONFIG_FILE):
+        default_config = config_manager.build_default_config()
+        config_manager.save_config(default_config)
+        logger.info("已创建默认设备身份配置文件")
+    config_manager.load_config()
+
     threading.Thread(target=listen_ble_mesh_data, daemon=True, name="BLE_Listener").start()
     threading.Thread(target=check_connectivity_by_flows, daemon=True, name="Connectivity_Checker").start()
     
