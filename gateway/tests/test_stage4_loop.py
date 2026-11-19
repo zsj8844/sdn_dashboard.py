@@ -6,7 +6,7 @@
     resolve(网关本地缓存 miss) → PacketIn → FlowMod → 网关本地缓存写入 → flow_ready 推送
     FlowMod DELETE → flow_delete 推送
 
-没有 XDP 的部分已在容器 selftest_probe.py --stage 4 验证；这里验证
+XDP 侧的挂载/ringbuf 由 goprobe/selftest_go*.sh 覆盖；这里验证
 网关侧的真实 OF 握手/解析和探针桥推送。
 
     .venv/bin/python gateway/tests/test_stage4_loop.py

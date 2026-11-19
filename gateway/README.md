@@ -14,7 +14,7 @@ IoT 网关（Mininet 里的 iot3）的用户态实现。
 | `tools/ble_injector.py` | 无硬件 BLE 数据注入 |
 | `tools/ble_scanner.py` | 宿主机 bleak 扫描 |
 | `tools/iot_gateway_simulator.py` | 旧版模拟器（未被引用） |
-| `xdp/` | XDP 过滤 / probe / qdisc 实现 |
+| `xdp/` | XDP 程序 + Go 加载器（`goprobe/`）+ qdisc 实现 |
 | `tests/` | 所有网关测试，见 [tests/README.md](tests/README.md) |
 
 ## 启动

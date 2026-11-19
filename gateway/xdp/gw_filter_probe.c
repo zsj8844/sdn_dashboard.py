@@ -1,37 +1,24 @@
-/* iot3 网关入向 XDP 程序 —— 单文件，两个加载器共用。
+/* iot3 网关入向 XDP 程序（libbpf / clang 加载）。
  *
- * 用 GW_USE_BCC 选择加载方式：
- *   - BCC（gw_xdp_filter.py）：编译时带 -DGW_USE_BCC，使用 BPF_HASH 等宏
- *   - libbpf/Go（goprobe）：不带该宏，使用 SEC(".maps") 标准定义
+ * 数据面只保留这一份 C，由 goprobe 的 Makefile 编译成
+ * gw_filter_probe.o，再由 Go（cilium/ebpf）加载。
  *
  * 共享的类型定义在 gw_filter_types.h，共享的 filter 逻辑在
- * gw_filter_logic.h；本文件只保留 map 定义和入口的差异。
+ * gw_filter_logic.h；本文件只保留 map 定义和入口。
  *
  * 阶段 1：UDP 5005 分类、计数、按 cfg 丢弃非 5005。
  * 阶段 2：flows HASH（5 元组 → PENDING/READY + 过期时间），未命中时
  *         写 PENDING（1 s 冷却）并向 ringbuf 发一个事件；数据始终 XDP_PASS。
  * 阶段 3-5：用户态探针写 READY（TTL 60 s），过期后视同未命中。
  */
-#ifdef GW_USE_BCC
-#include <uapi/linux/bpf.h>
-#include <uapi/linux/if_ether.h>
-#include <uapi/linux/in.h>
-#else
 #include <linux/bpf.h>
 #include <linux/if_ether.h>
 #include <linux/in.h>
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_endian.h>
-#endif
 
 #include "gw_filter_types.h"
 
-#ifdef GW_USE_BCC
-BPF_HASH(flows, struct flow_key, struct flow_val, 8192);
-BPF_RINGBUF_OUTPUT(misses, 32);
-BPF_ARRAY(cfg, u32, 1);
-BPF_PERCPU_ARRAY(stats, u64, ST_MAX);
-#else
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(max_entries, 8192);
@@ -57,16 +44,9 @@ struct {
     __type(key, __u32);
     __type(value, __u64);
 } stats SEC(".maps");
-#endif
 
 #include "gw_filter_logic.h"
 
-#ifdef GW_USE_BCC
-int gw_filter(struct xdp_md *ctx)
-{
-    return gw_filter_impl(ctx);
-}
-#else
 SEC("xdp")
 int gw_filter(struct xdp_md *ctx)
 {
@@ -74,4 +54,3 @@ int gw_filter(struct xdp_md *ctx)
 }
 
 char _license[] SEC("license") = "GPL";
-#endif

@@ -448,6 +448,7 @@ func netnsID() string {
 	return target
 }
 
+// 这个是 Go 版本的默认 eBPF 对象路径：与可执行文件同目录。
 func defaultObject() string {
 	if exe, err := os.Executable(); err == nil {
 		p := filepath.Join(filepath.Dir(exe), "gw_filter_probe.o")
@@ -515,7 +516,7 @@ func main() {
 	if _, err := os.Stat(objPath); err != nil {
 		log.Fatalf("找不到 eBPF 对象文件 %s（先 make）", objPath)
 	}
-
+	// 这个是 Go 版本的默认 eBPF 对象路径：与可执行文件同目录。
 	spec, err := ebpf.LoadCollectionSpec(objPath)
 	if err != nil {
 		log.Fatalf("加载 spec 失败: %v", err)

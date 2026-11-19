@@ -19,10 +19,10 @@ IoT 数据从 iot3 网关进入 SDN 域，控制器完成主机发现、路由�
 | 真实 BLE Mesh 接入 | ❌ 网关没有 BLE 协议栈；宿主机 bleak 扫描器已提供（需硬件） |
 | 边缘应用下发 / 设备角色切换 | ❌ 面板内存模型，无设备侧执行 |
 | 网关侧 OpenFlow 协议客户端 | ✅ 已接入网关：dpid=3 完成 HELLO/FEATURES 握手，PacketIn 上报、FlowMod 写入本地流表；已对真实控制器本地验证，Mininet 待联调 |
-| 网关入向 XDP filter + 流探针（eBPF，阶段 1–5） | ✅ 隔离 veth/容器已验证：过滤计数、ringbuf 事件、PENDING 冷却、网关本地缓存→eBPF 缓存双写、TTL 老化、50 次/s 限速；真实拓扑联调待做 |
+| 网关入向 XDP filter + 流探针（eBPF，Go 版） | ✅ 隔离 veth 已验证：阶段 1（filter 计数 + 1000 包全收）、阶段 2（ringbuf → resolve → pending → flow_ready → READY）；真实拓扑联调待做 |
 | 优先级标记 + 出口 HTB（阶段 6） | ✅ 隔离 veth 已验证：拥塞时 EF 队列平均延迟 176 ms vs 普通 632 ms；空闲和移除 qdisc 后无差异 |
-| 阶段 7 测量 | ✅ filter-only vs filter+probe 各 5000 包：100% 接收、命中率 0.9998、事件 1 次；数字仅对 veth + XDP generic（skb）模式有效 |
-| Go 版探针（cilium/ebpf） | ⚠️ 编译通过；root 级挂载与计数尚未实测，需本地跑 `gateway/xdp/goprobe/selftest_go.sh` |
+| 阶段 7 测量 | ⚠️ 原 BCC 自测已随 BCC 加载器移除，未在 Go 版复测 |
+| Go 版探针（cilium/ebpf） | ✅ 唯一加载器：`selftest_go.sh` / `selftest_go_probe.sh` 在隔离 veth 通过 |
 
 未完成项、根因与实施路线见 [问题.md](问题.md)。
 
@@ -42,15 +42,12 @@ SDN_IOT/
 │   │   ├── ble_scanner.py       # 宿主机 BLE 扫描（bleak，可选）
 │   │   └── iot_gateway_simulator.py # 旧版模拟器，未被引用
 │   ├── xdp/                     # eBPF 入向过滤 + 流探针（实现）
-│   │   ├── gw_filter_types.h    # 共享结构体/常量（两个加载器共用）
-│   │   ├── gw_filter_logic.h    # 共享 filter 逻辑（两个加载器共用）
-│   │   ├── gw_filter_probe.c    # 单文件：GW_USE_BCC 选择 BCC/libbpf map 定义
-│   │   ├── gw_xdp_filter.py     # 挂载 / 计数 / probe / 退场（系统 Python + root）
+│   │   ├── gw_filter_types.h    # 结构体/常量（内核与用户态共享契约）
+│   │   ├── gw_filter_logic.h    # filter 逻辑
+│   │   ├── gw_filter_probe.c    # XDP 程序（libbpf / SEC(".maps")）
 │   │   ├── qos_egress.sh        # 出口 HTB + DSCP 分类（tc）
-│   │   └── goprobe/             # Go 用户态探针（cilium/ebpf，编译同一份 C）
+│   │   └── goprobe/             # Go 加载器 + 自测（cilium/ebpf）
 │   └── tests/                   # 所有网关测试
-│       ├── selftest.sh          # 阶段 1：filter 计数/丢弃自测（需 root）
-│       ├── selftest_probe.py    # 阶段 2–5/7：探针、限速、测量（需 root）
 │       ├── selftest_qos.py      # 阶段 6：拥塞下延迟对比（需 root）
 │       ├── test_stage4_loop.py  # 阶段 4 网关侧 OF 回路（无需 root）
 │       ├── test_gateway_of_agent.py
@@ -131,77 +128,65 @@ PASS；未命中时经 ringbuf 上报（写 1 秒 PENDING 冷却，同流只报�
 文本、不算业务优先级；优先级由 Python 算好后用 `SO_PRIORITY` + DSCP 逐包标记，
 出口 `qos_egress.sh` 用 HTB 按 DSCP 调度。
 
-Python 版用 BCC 加载（不需要 clang CLI），必须 **root + 系统 Python**，
-并在 iot3 命名空间内运行：
+数据面 C 在 `gateway/xdp/gw_filter_probe.c`，由 `gateway/xdp/goprobe/Makefile`
+用 clang 编译成 `gw_filter_probe.o`；用户态是 Go + `cilium/ebpf` 的单二进制
+`gw-xdp-go`。必须 **root**，并在 Mininet CLI 的 iot3 命名空间内运行：
 
 ```bash
-# Mininet CLI 里（拓扑是 root 启动的，直接进 iot3 命名空间）
-# 只过滤：ringbuf 事件仅打日志
-mininet> iot3 /usr/bin/python3 /home/zhang/桌面/sdn/SDN_IOT/gateway/xdp/gw_xdp_filter.py --interval 2 --no-probe
+# 在 SDN_IOT 根目录先构建
+make -C gateway/xdp/goprobe
+
+# Mininet CLI 里（拓扑是 root 启动的）
 # 完整探针：连网关 ProbeBridge（默认 /tmp/sdn_xdp_probe.sock）
-mininet> iot3 /usr/bin/python3 /home/zhang/桌面/sdn/SDN_IOT/gateway/xdp/gw_xdp_filter.py --interval 2
+mininet> iot3 /home/zhang/桌面/sdn/SDN_IOT/gateway/xdp/goprobe/gw-xdp-go --ifaces iot3-eth0,iot3-eth1,iot3-eth2
+
+# 只过滤：ringbuf 事件仅打日志
+mininet> iot3 /home/zhang/桌面/sdn/SDN_IOT/gateway/xdp/goprobe/gw-xdp-go --ifaces iot3-eth0 --no-probe
+
+# 打开丢弃非 5005
+mininet> iot3 /home/zhang/桌面/sdn/SDN_IOT/gateway/xdp/goprobe/gw-xdp-go --ifaces iot3-eth0 --set-cfg drop-non5005
 
 # 出口优先级（拥塞时才有效果）：iot3 面向 s1 的接口
 mininet> iot3 /home/zhang/桌面/sdn/SDN_IOT/gateway/xdp/qos_egress.sh setup iot3-eth3 1000
 
-# 不依赖 Mininet 的自测（需 root；阶段 2–7 需要 BCC）
-sudo ./gateway/tests/selftest.sh                  # 阶段 1
-sudo /usr/bin/python3 ./gateway/tests/selftest_probe.py --stage 2   # 2/3/4/5/7
-sudo /usr/bin/python3 ./gateway/tests/selftest_qos.py               # 阶段 6
-.venv/bin/python ./gateway/tests/test_stage4_loop.py                # 阶段 4 控制器回路
-
-# 退场（PID 要指向 iot3 里的网关进程，可先 nsenter 进去 ip link 确认 iot3-eth0）
-sudo nsenter -t "$(pgrep -f iot_gateway_enhanced.py | head -1)" -n \
-  /usr/bin/python3 /home/zhang/桌面/sdn/SDN_IOT/gateway/xdp/gw_xdp_filter.py --detach-only
+# 退场
+mininet> iot3 /home/zhang/桌面/sdn/SDN_IOT/gateway/xdp/goprobe/gw-xdp-go --ifaces iot3-eth0 --detach-only
 ```
 
-### Go 版用户态探针（可选）
-
-数据面仍是 C，用户态换成 Go + `cilium/ebpf`，单二进制、不依赖 BCC：
+不依赖 Mininet 的自测（在 SDN_IOT 根目录执行，需要 root）：
 
 ```bash
-cd gateway/xdp/goprobe
-make
+sudo ./gateway/xdp/goprobe/selftest_go.sh          # 阶段 1：filter 计数 + 1000 包全部接收
+sudo ./gateway/xdp/goprobe/selftest_go_probe.sh    # 阶段 2：ringbuf → resolve → pending → flow_ready → READY
 
-# 在 Mininet CLI 的 iot3 命名空间内运行（--ifaces 用逗号分隔）
-mininet> iot3 /home/zhang/桌面/sdn/SDN_IOT/gateway/xdp/goprobe/gw-xdp-go --ifaces iot3-eth0,iot3-eth1,iot3-eth2
-
-# 最小自测（需要 root）
-sudo ./selftest_go.sh
+# 阶段 6 出口 HTB；阶段 4 控制器回路（免 root）
+sudo /usr/bin/python3 gateway/tests/selftest_qos.py
+.venv/bin/python gateway/tests/test_stage4_loop.py
 ```
-
-- C 程序在 `gateway/xdp/goprobe/bpf/gw_filter_probe.c`，是 libbpf 写法；
-- 与 Python 版**二选一**，不要同时挂同一接口；切换前先 `--detach-only`；
-- 数据面是同一份 C 程序，功能与 Python/BCC 版对齐；root 级挂载与计数尚未实测，收益主要是部署更干净（单二进制）。
 
 注意：XDP 挂在 iot3-eth0/1/2，只有从 iot1/2/4 发往网关的包会经过它；从宿主机
 直接发给 192.168.1.12 的包走 iot3-eth3，不经过这个过滤点（要测就 `mininet> iot1
 python3 /home/zhang/桌面/sdn/SDN_IOT/gateway/tools/ble_injector.py --target 192.168.2.1`）。
 
-状态（2026-11-17，全部在隔离特权容器 / 宿主机 venv 完成，宿主机网络与
-Mininet 未被改动；本机物理网卡是 Wi-Fi（rtw89），不支持 native XDP，所有挂载
-均为 veth + XDP generic（skb）模式，数字不代表物理网卡性能）：
+状态（2026-11-19，Go 版；隔离 veth + XDP generic（skb）模式，宿主机网络与
+Mininet 未被改动；本机物理网卡是 Wi-Fi（rtw89），不支持 native XDP，数字不代表
+物理网卡性能）：
 
-- **阶段 1**（`selftest.sh`）：1000 个 5005 包 `flow_miss=1 + flow_cached=999`
-  且接收端收到 1000；`non_5005=50`、`parse_error=0`；开 cfg 后非 5005
-  `dropped=100`、5005 不受影响；双接口挂载与退出回滚通过。
-- **阶段 2**（`--stage 2`）：1000 包只产生 2 个事件（1 秒冷却过期后再报一次），
-  `flow_cached=999`，接收 1001。
-- **阶段 3**（`--stage 3`）：网关本地缓存 ready 后写 eBPF 缓存，1 个事件 / 1 次 resolve /
-  1 次 eBPF 缓存写入，其余 999 包 0 事件，接收 1000。
-- **阶段 4**（`--stage 4` + `test_stage4_loop.py`）：pending → 控制器
-  PacketIn → FlowMod → 网关本地缓存写入 → `flow_ready` → eBPF 缓存写入；真实 OF 1.3 握手与
-  FlowMod DELETE 同步均验证，接收 550。
-- **阶段 5**（`--stage 5`）：TTL=2 s 时 62 包只重新触发 1 次；1000 个不同
-  5 元组在 6 ms 内注入，resolve 恰好 50 次、`rate_limited=950`、数据不丢。
+- **阶段 1**（`selftest_go.sh`）：1000 个 5005 包 `flow_miss=1 + flow_cached=999`
+  且接收端收到 1000；`non_5005 >= 50`、`parse_error=0`；退出后 XDP 已摘除。
+- **阶段 2**（`selftest_go_probe.sh`）：1 个 ringbuf 事件 → 1 次 resolve →
+  1 次 pending → 1 次 flow_ready → 1 次 eBPF READY 写回；
+  `flow_cached=999 + flow_miss=1`，接收 1000。
+- **阶段 4**（`test_stage4_loop.py`）：pending → 控制器 PacketIn → FlowMod →
+  网关本地缓存 → `flow_ready`；FlowMod DELETE 同步。
 - **阶段 6**（`selftest_qos.py`）：HTB 1 Mbit 下 EF 平均 176 ms / 普通 632 ms；
   空闲链路两者均 0.5 ms，移除 qdisc 后恢复 1.3 ms（无假优势）。
-- **阶段 7**（`--stage 7`）：filter-only 与 filter+probe 各 5000 包全部接收，
-  命中率 0.9998，probe 仅 1 个事件；`UdpRcvbufErrors=0`。
 
-注意：`ip link set dev X xdp off` 等价于 flags=0，摘不掉用 `--mode skb`
-显式挂载的程序；加载器已改为按挂载模式的 flags 调 `bpf_attach_xdp(dev,-1,flags)`
-摘除，并校验接口上确实没有 XDP 才报“已摘除”。
+阶段 3/5/7 的原 BCC 自测随 BCC 加载器一并移除，未在 Go 版复测。
+
+注意：`ip link set dev X xdp off` 等价于 flags=0，可能摘不掉用 `--mode skb`
+显式挂载的程序；`gw-xdp-go --detach-only` 会按挂载时的 link 正确摘除，
+并校验接口上确实没有 XDP 才报“已摘除”。
 
 ## 端口
 
