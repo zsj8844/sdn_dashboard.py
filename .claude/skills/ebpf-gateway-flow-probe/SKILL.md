@@ -316,11 +316,12 @@ int gw_filter_probe(struct xdp_md *ctx)
 char _license[] SEC("license") = "GPL";
 ```
 
-实现选型（评审时三选一）：
+实现选型（已定）：
 
-- **A. libbpf + clang**：标准做法，需要 `sudo apt install clang llvm libbpf-dev`；maps 需 pin 后供 probe 访问。适合最终交付。
-- **B. BCC（`/usr/bin/python3`，不用 clang CLI）**：加载、挂载、ringbuf、改 map 都在一个 Python 进程里，适合先做最小验证；注意项目 venv 是 3.10 且没有 bcc，必须用系统 Python。
-- **C. Go + cilium/ebpf**：数据面 C 用 libbpf 写法，Go 负责加载、ringbuf、map 回写；实现见 `gateway/xdp/goprobe/`（`make` 后得到单二进制）。功能与 B 相同，收益是部署不依赖 Python/BCC。
+- **Go + cilium/ebpf（当前）**：数据面 C 用 libbpf 写法，Go 负责加载、ringbuf、map 回写；
+  实现见 `gateway/xdp/goprobe/`（`make` 后得到单二进制），自测 `selftest_go.sh` /
+  `selftest_go_probe.sh`。
+- 历史：BCC/Python 加载器已移除；原 libbpf + clang 选项由 Go 加载器覆盖。
 
 ---
 

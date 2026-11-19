@@ -1,25 +1,14 @@
-/* iot3 网关 XDP 程序的共享逻辑。
+/* iot3 网关 XDP 程序的共享逻辑（libbpf 版）。
  *
- * 只共享流程，不共享 map 访问方式：
- *   - BCC 版定义 GW_USE_BCC，使用 flows.lookup() / flows.update() /
- *     cfg.lookup() / stats.lookup() / misses.ringbuf_output()。
- *   - libbpf 版使用 bpf_map_lookup_elem() / bpf_map_update_elem() /
- *     bpf_ringbuf_output()。
- *
- * 注意：这些调用必须写成字面量，不能包进宏。BCC 的源码重写器只认
- * 源码里的 map.lookup(...)，宏展开后的调用会报
- * "cannot use map function inside a macro"。
+ * 由 gw_filter_probe.c 在定义好 flows / misses / cfg / stats 四个 map 之后
+ * include；map 访问统一使用 libbpf 的 helper。
  */
 #ifndef GW_FILTER_LOGIC_H
 #define GW_FILTER_LOGIC_H
 
 static __always_inline void bump(__u32 k)
 {
-#ifdef GW_USE_BCC
-    __u64 *v = stats.lookup(&k);
-#else
     __u64 *v = bpf_map_lookup_elem(&stats, &k);
-#endif
     if (v)
         __sync_fetch_and_add(v, 1);
 }
@@ -72,11 +61,7 @@ static __always_inline int gw_filter_impl(struct xdp_md *ctx)
     if (bpf_ntohs(udp->dest) != GW_UDP_PORT) {
         bump(ST_NON_5005);
         __u32 k = 0;
-#ifdef GW_USE_BCC
-        __u32 *drop = cfg.lookup(&k);
-#else
         __u32 *drop = bpf_map_lookup_elem(&cfg, &k);
-#endif
         if (drop && ((*drop) & 1)) {
             bump(ST_DROPPED);
             return XDP_DROP;
@@ -92,11 +77,7 @@ static __always_inline int gw_filter_impl(struct xdp_md *ctx)
         .proto = IPPROTO_UDP,
     };
 
-#ifdef GW_USE_BCC
-    struct flow_val *v = flows.lookup(&key);
-#else
     struct flow_val *v = bpf_map_lookup_elem(&flows, &key);
-#endif
     if (v && v->expires_ns > now) {
         bump(ST_FLOW_CACHED);
         return XDP_PASS;
@@ -107,11 +88,7 @@ static __always_inline int gw_filter_impl(struct xdp_md *ctx)
         .expires_ns = now + COOLDOWN_NS,
         .flags = 0,
     };
-#ifdef GW_USE_BCC
-    flows.update(&key, &pending);
-#else
     bpf_map_update_elem(&flows, &key, &pending, BPF_ANY);
-#endif
     bump(ST_FLOW_MISS);
 
     struct miss_evt evt;
@@ -122,11 +99,7 @@ static __always_inline int gw_filter_impl(struct xdp_md *ctx)
     if ((void *)(payload + PREVIEW_LEN) <= data_end)
         __builtin_memcpy(evt.preview, payload, PREVIEW_LEN);
 
-#ifdef GW_USE_BCC
-    if (misses.ringbuf_output(&evt, sizeof(evt), 0) != 0)
-#else
     if (bpf_ringbuf_output(&misses, &evt, sizeof(evt), 0) != 0)
-#endif
         bump(ST_RINGBUF_FULL);
 
     return XDP_PASS;
