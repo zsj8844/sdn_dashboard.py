@@ -410,7 +410,10 @@ def main():
     from bcc import BPF
 
     flags = MODE_FLAGS[args.mode]
-    bpf = BPF(src_file=args.c_source)
+    # BCC 把源文件拼进 /virtual/main.c 再编译，quoted include 不会自动按
+    # 源文件目录解析；显式把 eBPF 源目录加进 include path。
+    src_dir = os.path.dirname(os.path.abspath(args.c_source))
+    bpf = BPF(src_file=args.c_source, cflags=["-I" + src_dir])
     fn = bpf.load_func("gw_filter", BPF.XDP)
 
     if args.set_cfg:

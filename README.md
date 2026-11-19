@@ -42,10 +42,12 @@ SDN_IOT/
 │   │   ├── ble_scanner.py       # 宿主机 BLE 扫描（bleak，可选）
 │   │   └── iot_gateway_simulator.py # 旧版模拟器，未被引用
 │   ├── xdp/                     # eBPF 入向过滤 + 流探针（实现）
-│   │   ├── gw_filter_probe.c    # XDP 程序（BCC 加载；filter + ringbuf 事件）
+│   │   ├── gw_filter_types.h    # 共享结构体/常量（两个加载器共用）
+│   │   ├── gw_filter_logic.h    # 共享 filter 逻辑（两个加载器共用）
+│   │   ├── gw_filter_probe.c    # BCC 薄封装：map 定义 + 入口
 │   │   ├── gw_xdp_filter.py     # 挂载 / 计数 / probe / 退场（系统 Python + root）
 │   │   ├── qos_egress.sh        # 出口 HTB + DSCP 分类（tc）
-│   │   └── goprobe/             # Go 版用户态探针（cilium/ebpf，数据面复用同一份 C）
+│   │   └── goprobe/             # Go + libbpf 薄封装（cilium/ebpf）
 │   └── tests/                   # 所有网关测试
 │       ├── selftest.sh          # 阶段 1：filter 计数/丢弃自测（需 root）
 │       ├── selftest_probe.py    # 阶段 2–5/7：探针、限速、测量（需 root）

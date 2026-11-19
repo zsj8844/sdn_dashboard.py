@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="1050" viewBox="0 0 1500 1050"
+     font-family="'Noto Sans CJK SC','Noto Sans SC','Microsoft YaHei',sans-serif">
+  <defs>
+    <marker id="m-ink" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#334155"/>
+    </marker>
+    <marker id="m-blue" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#2563eb"/>
+    </marker>
+    <marker id="m-green" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#059669"/>
+    </marker>
+    <marker id="m-orange" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#d97706"/>
+    </marker>
+    <marker id="m-purple" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#7c3aed"/>
+    </marker>
+    <marker id="m-navy" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#1e3a8a"/>
+    </marker>
+    <marker id="m-gray" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <rect width="1500" height="1050" fill="#fbfbfd"/>
+
+  <text x="40" y="48" font-size="24" font-weight="700" fill="#0f172a">一个 BLE 数据包在 SDN_IoT 网关里的完整流转</text>
+  <text x="40" y="78" font-size="13" fill="#64748b">三条出口互不替代；实线是真实数据，虚线是控制/元数据；紫色是可选 XDP/eBPF 路径</text>
+
+  <!-- 图例 -->
+  <line x1="1040" y1="40" x2="1080" y2="40" stroke="#2563eb" stroke-width="2.5" marker-end="url(#m-blue)"/>
+  <text x="1090" y="44" font-size="12" fill="#1e3a8a">① 元数据</text>
+  <line x1="1180" y1="40" x2="1220" y2="40" stroke="#059669" stroke-width="2.5" marker-end="url(#m-green)"/>
+  <text x="1230" y="44" font-size="12" fill="#065f46">② 真实数据</text>
+  <line x1="1040" y1="66" x2="1080" y2="66" stroke="#d97706" stroke-width="2.5" marker-end="url(#m-orange)"/>
+  <text x="1090" y="70" font-size="12" fill="#92400e">③ OpenFlow</text>
+  <line x1="1180" y1="66" x2="1220" y2="66" stroke="#7c3aed" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#m-purple)"/>
+  <text x="1230" y="70" font-size="12" fill="#5b21b6">XDP/eBPF（可选）</text>
+
+  <!-- ================= 左侧：传感器 ================= -->
+  <rect x="30" y="140" width="180" height="110" rx="10" fill="#f8fafc" stroke="#64748b" stroke-width="1.5"/>
+  <text x="45" y="166" font-size="14" font-weight="700" fill="#0f172a">BLE 传感器</text>
+  <text x="45" y="190" font-size="12" fill="#334155">iot1 192.168.2.10</text>
+  <text x="45" y="208" font-size="12" fill="#334155">iot2 192.168.3.11</text>
+  <text x="45" y="226" font-size="12" fill="#334155">iot4 192.168.4.13</text>
+  <text x="45" y="244" font-size="12" font-weight="700" fill="#2563eb">UDP → :5005</text>
+
+  <!-- ================= 左侧：XDP ================= -->
+  <rect x="30" y="300" width="180" height="170" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="45" y="326" font-size="13" font-weight="700" fill="#5b21b6">XDP filter（可选）</text>
+  <text x="45" y="349" font-size="11.5" fill="#4c1d95">root 独立进程</text>
+  <text x="45" y="367" font-size="11.5" fill="#4c1d95">iot3-eth0/1/2 入向</text>
+  <text x="45" y="385" font-size="11.5" fill="#4c1d95">generic / skb 模式</text>
+  <text x="45" y="403" font-size="11.5" fill="#4c1d95">命中 eBPF 缓存 → PASS</text>
+  <text x="45" y="421" font-size="11.5" fill="#4c1d95">策略开启 → DROP 非 5005</text>
+  <text x="45" y="439" font-size="11.5" fill="#4c1d95">未命中 → ringbuf 事件</text>
+  <text x="45" y="457" font-size="11.5" fill="#4c1d95">→ probe（用户态）</text>
+
+  <!-- ================= 左侧：ProbeBridge ================= -->
+  <rect x="30" y="520" width="180" height="100" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="45" y="545" font-size="12.5" font-weight="700" fill="#5b21b6">ProbeBridge（网关进程内）</text>
+  <text x="45" y="567" font-size="11" fill="#4c1d95">Unix /tmp/sdn_xdp_probe.sock</text>
+  <text x="45" y="585" font-size="11" fill="#4c1d95">resolve → ready / pending</text>
+  <text x="45" y="603" font-size="11" fill="#4c1d95">FlowMod → flow_ready</text>
+  <text x="45" y="634" font-size="11" fill="#6d28d9">probe 收到 flow_ready 后</text>
+  <text x="45" y="650" font-size="11" fill="#6d28d9">把 eBPF 缓存写成 READY</text>
+
+  <!-- ================= 网关大框 ================= -->
+  <rect x="270" y="110" width="570" height="800" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="290" y="140" font-size="16" font-weight="700" fill="#1e40af">iot3 命名空间 · 网关 Python 进程</text>
+  <text x="290" y="162" font-size="11.5" fill="#475569">接收线程 + OpenFlow 客户端；左侧 ProbeBridge 同属该进程</text>
+
+  <!-- recvfrom -->
+  <rect x="295" y="360" width="210" height="100" rx="8" fill="#ffffff" stroke="#334155" stroke-width="1.4"/>
+  <text x="310" y="385" font-size="13" font-weight="700" fill="#0f172a">UDP socket 0.0.0.0:5005</text>
+  <text x="310" y="408" font-size="11.5" fill="#334155">recvfrom(1024) 阻塞</text>
+  <text x="310" y="426" font-size="11.5" fill="#334155">data = 'aa:bb..:01,temp,45.2'</text>
+  <text x="310" y="444" font-size="11.5" fill="#334155">addr = 源地址（只记日志）</text>
+
+  <!-- 解析 -->
+  <rect x="295" y="500" width="210" height="170" rx="8" fill="#ffffff" stroke="#334155" stroke-width="1.4"/>
+  <text x="310" y="525" font-size="13" font-weight="700" fill="#0f172a">解析 + 计算</text>
+  <text x="310" y="548" font-size="11.5" fill="#334155">split(',', 2)</text>
+  <text x="310" y="566" font-size="11.5" fill="#334155">priority = 5</text>
+  <text x="310" y="584" font-size="11.5" fill="#334155">route_select = route_b</text>
+  <text x="310" y="602" font-size="11.5" fill="#b45309">（无备用链路 → 实际 route_a）</text>
+  <text x="310" y="620" font-size="11.5" fill="#334155">target_ip = 192.168.1.20</text>
+  <text x="310" y="638" font-size="11.5" fill="#334155">extension_data = TLV hex</text>
+
+  <!-- ① -->
+  <rect x="540" y="180" width="280" height="110" rx="8" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="555" y="205" font-size="13" font-weight="700" fill="#1d4ed8">① send_to_controller()</text>
+  <text x="555" y="228" font-size="11.5" fill="#1e3a8a">JSON：BLE、优先级、路由、TLV</text>
+  <text x="555" y="246" font-size="11.5" fill="#1e3a8a">优先 Unix /tmp/sdn_iot_ext.sock</text>
+  <text x="555" y="264" font-size="11.5" fill="#1e3a8a">否则 UDP 192.168.1.1:6650</text>
+
+  <!-- ② -->
+  <rect x="540" y="345" width="280" height="110" rx="8" fill="#ecfdf5" stroke="#059669" stroke-width="1.5"/>
+  <text x="555" y="370" font-size="13" font-weight="700" fill="#047857">② forward_data()</text>
+  <text x="555" y="393" font-size="11.5" fill="#065f46">新建 UDP socket（不是转发原包）</text>
+  <text x="555" y="411" font-size="11.5" fill="#065f46">src 192.168.1.12:随机端口</text>
+  <text x="555" y="429" font-size="11.5" fill="#065f46">dst 192.168.1.20:5005</text>
+  <text x="555" y="447" font-size="11.5" fill="#065f46">SO_PRIORITY + DSCP 逐包标记</text>
+
+  <!-- ③ -->
+  <rect x="540" y="510" width="280" height="125" rx="8" fill="#fffbeb" stroke="#d97706" stroke-width="1.5"/>
+  <text x="555" y="535" font-size="13" font-weight="700" fill="#b45309">③ _report_to_openflow()</text>
+  <text x="555" y="558" font-size="11.5" fill="#92400e">GatewayOpenFlowAgent dpid=3</text>
+  <text x="555" y="576" font-size="11.5" fill="#92400e">自己拼 Ethernet/IP/UDP 帧</text>
+  <text x="555" y="594" font-size="11.5" fill="#92400e">payload = 原始 BLE 文本</text>
+  <text x="555" y="612" font-size="11.5" fill="#92400e">PacketIn → 控制器 :6634</text>
+  <text x="555" y="630" font-size="11.5" fill="#92400e">同目标 5 秒内只报一次</text>
+
+  <!-- 本地流表 -->
+  <rect x="295" y="720" width="270" height="90" rx="8" fill="#ffffff" stroke="#334155" stroke-width="1.4"/>
+  <text x="310" y="745" font-size="13" font-weight="700" fill="#0f172a">网关本地缓存 FlowTable</text>
+  <text x="310" y="768" font-size="11.5" fill="#334155">lookup(dst_ip, eth_type=0x0800)</text>
+  <text x="310" y="786" font-size="11.5" fill="#334155">命中 → 跳过 PacketIn</text>
+
+  <!-- ================= 控制器 ================= -->
+  <rect x="890" y="110" width="420" height="560" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="910" y="140" font-size="16" font-weight="700" fill="#9a3412">Ryu 控制器（宿主机）</text>
+
+  <rect x="915" y="175" width="370" height="120" rx="8" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="930" y="200" font-size="13" font-weight="700" fill="#1d4ed8">UDPExtensionReceiver</text>
+  <text x="930" y="223" font-size="11.5" fill="#1e3a8a">UDP :6650 / Unix socket</text>
+  <text x="930" y="241" font-size="11.5" fill="#1e3a8a">_on_iot_extension()</text>
+  <text x="930" y="259" font-size="11.5" fill="#1e3a8a">install_extension_flow()</text>
+  <text x="930" y="277" font-size="11.5" fill="#1e3a8a">→ 给 s1/s2 和 dpid=3 装流</text>
+
+  <rect x="915" y="335" width="370" height="190" rx="8" fill="#fffbeb" stroke="#d97706" stroke-width="1.5"/>
+  <text x="930" y="360" font-size="13" font-weight="700" fill="#b45309">OpenFlow server :6634</text>
+  <text x="930" y="383" font-size="11.5" fill="#92400e">PacketProcessor.handle(PacketIn)</text>
+  <text x="930" y="403" font-size="11.5" fill="#92400e">dpid=1/2：解析 UDP 5005 载荷</text>
+  <text x="930" y="421" font-size="11.5" fill="#92400e">        → IoTProcessor → FlowMod</text>
+  <text x="930" y="441" font-size="11.5" fill="#92400e">dpid=3：resolve_out_port()</text>
+  <text x="930" y="459" font-size="11.5" fill="#92400e">        → FlowMod 回网关</text>
+  <text x="930" y="481" font-size="11.5" font-weight="700" fill="#9a3412">同一读数的控制信息可能到两次：① + ③</text>
+  <text x="930" y="499" font-size="11.5" font-weight="700" fill="#9a3412">FlowMod 到达后，③ 的后续包被抑制</text>
+
+  <!-- ================= 数据面 ================= -->
+  <rect x="890" y="700" width="420" height="240" rx="14" fill="#f0fdf4" stroke="#059669" stroke-width="1.5"/>
+  <text x="910" y="730" font-size="16" font-weight="700" fill="#065f46">真实数据面</text>
+
+  <rect x="920" y="755" width="80" height="45" rx="6" fill="#ffffff" stroke="#059669" stroke-width="1.4"/>
+  <text x="960" y="783" font-size="14" font-weight="700" fill="#065f46" text-anchor="middle">s1</text>
+  <rect x="1030" y="755" width="80" height="45" rx="6" fill="#ffffff" stroke="#059669" stroke-width="1.4"/>
+  <text x="1070" y="783" font-size="14" font-weight="700" fill="#065f46" text-anchor="middle">s2</text>
+  <rect x="1140" y="755" width="150" height="45" rx="6" fill="#ffffff" stroke="#059669" stroke-width="1.4"/>
+  <text x="1215" y="783" font-size="13" font-weight="700" fill="#065f46" text-anchor="middle">h1 :5005</text>
+  <line x1="1002" y1="777" x2="1028" y2="777" stroke="#059669" stroke-width="2" marker-end="url(#m-green)"/>
+  <line x1="1112" y1="777" x2="1138" y2="777" stroke="#059669" stroke-width="2" marker-end="url(#m-green)"/>
+
+  <text x="910" y="835" font-size="11.5" fill="#065f46">② 的新 UDP 包：iot3-eth3 → s1 → s2 → h1</text>
+  <text x="910" y="853" font-size="11.5" fill="#065f46">源 IP 已变成 192.168.1.12，不是 iot1</text>
+  <text x="910" y="875" font-size="11.5" fill="#065f46">① 先预装流 → ② 到达时通常直接命中</text>
+  <text x="910" y="893" font-size="11.5" fill="#065f46">若没命中：PacketIn(dpid=1/2) → FlowMod</text>
+  <text x="910" y="920" font-size="11.5" fill="#047857">所以 ② 不需要等网关的 OF 回路</text>
+
+  <!-- ================= 反直觉点 ================= -->
+  <rect x="270" y="920" width="570" height="115" rx="10" fill="#ffffff" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="290" y="945" font-size="13" font-weight="700" fill="#b91c1c">反直觉点（你感觉不对的地方）</text>
+  <text x="290" y="968" font-size="11.5" fill="#7f1d1d">• 网关不转发原包：② 新建 UDP，源 IP 变成 192.168.1.12。</text>
+  <text x="290" y="986" font-size="11.5" fill="#7f1d1d">• 首包可能到控制器两次：① JSON + ③ PacketIn，后者是网关自己拼的帧。</text>
+  <text x="290" y="1004" font-size="11.5" fill="#7f1d1d">• 本地 FlowTable 只抑制重复 PacketIn，不决定 forward_data 的去向。</text>
+  <text x="290" y="1022" font-size="11.5" fill="#7f1d1d">• ① 也会给 dpid=3 装流；FlowMod 到达后，③ 的后续 PacketIn 被抑制。</text>
+
+  <!-- ================= 箭头 ================= -->
+  <!-- 传感器 → XDP -->
+  <line x1="120" y1="250" x2="120" y2="298" stroke="#334155" stroke-width="2" marker-end="url(#m-ink)"/>
+  <!-- XDP → recvfrom -->
+  <line x1="210" y1="390" x2="292" y2="405" stroke="#334155" stroke-width="2" marker-end="url(#m-ink)"/>
+  <text x="218" y="380" font-size="11" font-weight="700" fill="#334155">PASS</text>
+  <!-- XDP → ProbeBridge -->
+  <line x1="120" y1="470" x2="120" y2="518" stroke="#7c3aed" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#m-purple)"/>
+  <!-- ProbeBridge → FlowTable -->
+  <path d="M 210 570 L 240 570 L 240 765 L 292 765" fill="none" stroke="#7c3aed" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#m-purple)"/>
+  <!-- recvfrom → 解析 -->
+  <line x1="400" y1="460" x2="400" y2="498" stroke="#334155" stroke-width="2" marker-end="url(#m-ink)"/>
+
+  <!-- 解析 → ① -->
+  <path d="M 505 530 L 520 530 L 520 235 L 538 235" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#m-blue)"/>
+  <!-- 解析 → ② -->
+  <path d="M 505 565 L 520 565 L 520 400 L 538 400" fill="none" stroke="#059669" stroke-width="2" marker-end="url(#m-green)"/>
+  <!-- 解析 → ③ -->
+  <path d="M 505 620 L 520 620 L 520 572 L 538 572" fill="none" stroke="#d97706" stroke-width="2" marker-end="url(#m-orange)"/>
+
+  <!-- ① → 控制器扩展接收器 -->
+  <line x1="820" y1="235" x2="913" y2="235" stroke="#2563eb" stroke-width="2" marker-end="url(#m-blue)"/>
+  <text x="830" y="225" font-size="11" font-weight="700" fill="#2563eb">① 元数据</text>
+  <!-- ② → 真实数据面 -->
+  <path d="M 820 400 L 850 400 L 850 795 L 908 795" fill="none" stroke="#059669" stroke-width="2.5" marker-end="url(#m-green)"/>
+  <text x="830" y="390" font-size="11" font-weight="700" fill="#059669">② 真实 UDP</text>
+  <!-- ③ → OF server -->
+  <path d="M 820 572 L 865 572 L 865 430 L 913 430" fill="none" stroke="#d97706" stroke-width="2" marker-end="url(#m-orange)"/>
+  <text x="830" y="562" font-size="11" font-weight="700" fill="#d97706">③ PacketIn</text>
+
+  <!-- 控制器 → 本地流表（FlowMod dpid=3） -->
+  <path d="M 890 620 L 880 620 L 880 830 L 430 830 L 430 812" fill="none" stroke="#1e3a8a" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#m-navy)"/>
+  <text x="600" y="822" font-size="11" font-weight="700" fill="#1e3a8a">FlowMod(dpid=3)：① 批量装流 + ③ 回路</text>
+
+  <!-- 扩展接收器 → s1/s2 -->
+  <path d="M 1285 240 L 1330 240 L 1330 770 L 1312 770" fill="none" stroke="#2563eb" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#m-blue)"/>
+  <text x="1336" y="500" font-size="11" font-weight="700" fill="#2563eb" transform="rotate(90 1336 500)">FlowMod 预装 Experimenter 流</text>
+
+  <!-- OF server ↔ 交换机的缺流表路径 -->
+  <line x1="1080" y1="698" x2="1080" y2="527" stroke="#64748b" stroke-width="1.8" stroke-dasharray="5 4" marker-end="url(#m-gray)"/>
+  <line x1="1120" y1="527" x2="1120" y2="698" stroke="#64748b" stroke-width="1.8" stroke-dasharray="5 4" marker-end="url(#m-gray)"/>
+  <text x="1050" y="612" font-size="10.5" fill="#475569">PacketIn</text>
+  <text x="1125" y="612" font-size="10.5" fill="#475569">FlowMod</text>
+</svg>
