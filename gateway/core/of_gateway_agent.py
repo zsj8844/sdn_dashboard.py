@@ -101,6 +101,10 @@ class GatewayOpenFlowAgent:
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
 
+        # 网关本地缓存变化通知（probe 桥用它推送 flow_ready / flow_delete）
+        self.on_flow_installed: Optional[Callable[[Dict[str, Any], int], None]] = None
+        self.on_flow_deleted: Optional[Callable[[Dict[str, Any]], None]] = None
+
     # ── 生命周期 ────────────────────────────────────────────────
 
     def start(self) -> None:
@@ -223,6 +227,11 @@ class GatewayOpenFlowAgent:
                 strict=(command == ofproto.OFPFC_DELETE_STRICT),
             )
             self._log(f"[OF] 收到 FlowMod DELETE，删除 {removed} 条本地流")
+            if self.on_flow_deleted is not None:
+                try:
+                    self.on_flow_deleted(match)
+                except Exception as exc:  # noqa: BLE001 - 通知失败不影响网关本地缓存
+                    self._log(f"[OF] flow_deleted 通知失败: {exc}")
             return
 
         local_match = _to_local_match(fm.get("match") or {})
@@ -258,6 +267,11 @@ class GatewayOpenFlowAgent:
         ext_desc = f" IoT字段={ext_fields}" if ext_fields else ""
         self._log(f"[OF] 收到 FlowMod prio={priority} match={local_match} "
                   f"actions={[a.get('type') for a in actions]}{ext_desc}")
+        if self.on_flow_installed is not None:
+            try:
+                self.on_flow_installed(local_match, entry.idle_timeout)
+            except Exception as exc:  # noqa: BLE001 - 通知失败不影响网关本地缓存
+                self._log(f"[OF] flow_installed 通知失败: {exc}")
 
     def _on_packet_out(self, po: Dict[str, Any]) -> None:
         self.stats["packet_outs"] += 1
