@@ -19,7 +19,6 @@ IoT 数据从 iot3 网关进入 SDN 域，控制器完成主机发现、路由�
 | 真实 BLE Mesh 接入 | ❌ 网关没有 BLE 协议栈；宿主机 bleak 扫描器已提供（需硬件） |
 | 边缘应用下发 / 设备角色切换 | ❌ 面板内存模型，无设备侧执行 |
 | 网关侧 OpenFlow 协议客户端 | ✅ 已接入网关：dpid=3 完成 HELLO/FEATURES 握手，PacketIn 上报、FlowMod 写入本地流表；已对真实控制器本地验证，Mininet 待联调 |
-| OVS 内核 datapath 下沉 | ❌ 仍为 netdev 用户态 |
 | 网关入向 XDP filter + 流探针（eBPF，阶段 1–5） | ✅ 隔离 veth/容器已验证：过滤计数、ringbuf 事件、PENDING 冷却、网关本地缓存→eBPF 缓存双写、TTL 老化、50 次/s 限速；真实拓扑联调待做 |
 | 优先级标记 + 出口 HTB（阶段 6） | ✅ 隔离 veth 已验证：拥塞时 EF 队列平均延迟 176 ms vs 普通 632 ms；空闲和移除 qdisc 后无差异 |
 | 阶段 7 测量 | ✅ filter-only vs filter+probe 各 5000 包：100% 接收、命中率 0.9998、事件 1 次；数字仅对 veth/copy 模式有效 |
