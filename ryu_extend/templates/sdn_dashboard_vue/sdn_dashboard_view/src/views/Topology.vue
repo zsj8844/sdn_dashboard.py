@@ -101,7 +101,7 @@ function renderGraph() {
     .attr('orient', 'auto')
     .append('path')
     .attr('d', 'M0,-5L10,0L0,5')
-    .attr('fill', '#4a5568')
+    .attr('fill', '#94a3b8')
 
   // 链路
   const link = topoGroup.append('g')
@@ -109,7 +109,7 @@ function renderGraph() {
     .data(graph.links)
     .enter()
     .append('line')
-    .attr('stroke', d => d.isSwitchLink ? '#667eea' : '#4a5568')
+    .attr('stroke', d => d.isSwitchLink ? '#667eea' : '#cbd5e1')
     .attr('stroke-width', d => d.isSwitchLink ? 3 : 1.5)
     .attr('stroke-dasharray', d => d.isSwitchLink ? '' : '5,3')
     .attr('marker-end', d => d.isSwitchLink ? 'url(#arrowhead)' : '')
@@ -162,7 +162,7 @@ function renderGraph() {
     .append('text')
     .attr('text-anchor', 'middle')
     .attr('dy', d => nodeRadius(d) + 12)
-    .attr('fill', '#a0aec0')
+    .attr('fill', '#6b7280')
     .attr('font-size', 9)
     .text(d => d.ip)
 
@@ -302,41 +302,3 @@ onUnmounted(() => {
   </div>
 </template>
 
-<style scoped>
-.page { max-width: 1100px; margin: 0 auto; }
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-.page-header h2 { margin: 0; }
-.btn-primary {
-  padding: 8px 18px; border: none; border-radius: 8px;
-  background: linear-gradient(135deg, #667eea, #764ba2); color: #fff;
-  cursor: pointer; font-weight: 600; font-size: 14px;
-}
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-.topo-time { color: #a0aec0; font-size: 13px; margin-bottom: 10px; }
-.page-loading { text-align: center; padding: 60px; color: #a0aec0; }
-.empty-hint { text-align: center; padding: 60px; color: #64748b; }
-.topo-graph-container { margin-bottom: 15px; }
-.topo-graph-svg {
-  width: 100%; min-height: 480px;
-  background: #1e293b; border-radius: 12px;
-  overflow: hidden; cursor: grab;
-}
-.topo-graph-svg:active { cursor: grabbing; }
-.topo-graph-svg :deep(svg) { display: block; }
-.legend {
-  display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 20px;
-  padding: 10px 16px; background: #1e293b; border-radius: 8px;
-  font-size: 13px; color: #a0aec0;
-}
-.legend-item { display: flex; align-items: center; gap: 6px; }
-.dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
-.topo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-.topo-grid h3 { margin: 0 0 8px 0; color: #e2e8f0; font-size: 15px; }
-.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.data-table th { text-align: left; padding: 6px 10px; background: #0f172a; color: #a0aec0; }
-.data-table td { padding: 6px 10px; border-bottom: 1px solid #1e293b; color: #e2e8f0; }
-.data-table code { color: #667eea; font-size: 12px; }
-@media (max-width: 768px) {
-  .topo-grid { grid-template-columns: 1fr; }
-}
-</style>

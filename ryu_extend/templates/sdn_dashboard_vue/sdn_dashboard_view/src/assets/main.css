@@ -99,6 +99,13 @@ code, pre {
 .page {
   padding: 32px;
   max-width: 1200px;
+  margin: 0 auto;
+}
+
+.page-hint {
+  font-size: 13px;
+  color: #6b7280;
+  margin: -16px 0 20px;
 }
 
 .page h2 {
@@ -215,6 +222,9 @@ code, pre {
 .status-badge.online { background: #d1fae5; color: #065f46; }
 .status-badge.offline { background: #fee2e2; color: #991b1b; }
 .status-badge.info { background: #dbeafe; color: #1e40af; }
+.status-badge.gateway { background: #fef3c7; color: #92400e; }
+.status-badge.iot { background: #d1fae5; color: #065f46; }
+.status-badge.host { background: #e5e7eb; color: #374151; }
 
 /* Tables */
 .data-table {
@@ -287,25 +297,27 @@ code, pre {
 
 /* Log */
 .log-panel {
-  background: #1f2937;
+  background: #fff;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
   padding: 12px 16px;
   max-height: 300px;
   overflow-y: auto;
   font-family: ui-monospace, Consolas, monospace;
   font-size: 12px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.05);
 }
 
 .log-line {
-  color: #9ca3af;
+  color: #111827;
   padding: 3px 0;
-  border-bottom: 1px solid #374151;
+  border-bottom: 1px solid #f3f4f6;
 }
 
 .log-line:last-child { border-bottom: none; }
 
 .log-empty {
-  color: #6b7280;
+  color: #9ca3af;
   text-align: center;
   padding: 20px;
 }
@@ -346,6 +358,19 @@ code, pre {
 }
 
 .btn-primary:hover { background: #1e40af; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-secondary {
+  padding: 8px 16px;
+  background: #fff;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.btn-secondary:hover { background: #f9fafb; }
 
 .btn-danger {
   padding: 4px 12px;
@@ -397,6 +422,7 @@ code, pre {
 }
 
 .form-row input,
+.form-row select,
 .form-grid input,
 .form-grid select,
 .form-grid textarea {
@@ -404,6 +430,19 @@ code, pre {
   border: 1px solid #d1d5db;
   border-radius: 4px;
   font-size: 13px;
+  background: #fff;
+  color: #111827;
+}
+
+.form-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.form-panel h3,
+.flow-form h3 {
+  margin-top: 0;
 }
 
 .form-panel {
@@ -458,16 +497,70 @@ code, pre {
   gap: 6px;
 }
 
+.actions-cell .btn-primary {
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
 /* Topo */
 .topo-time {
   font-size: 12px;
   color: #9ca3af;
-  margin-top: -20px;
+  margin: -8px 0 16px;
+}
+
+.topo-graph-container {
+  margin-bottom: 16px;
+}
+
+.topo-graph-svg {
+  width: 100%;
+  min-height: 480px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .05);
+  overflow: hidden;
+  cursor: grab;
+}
+
+.topo-graph-svg:active { cursor: grabbing; }
+
+.topo-graph-svg svg { display: block; }
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
   margin-bottom: 20px;
+  padding: 10px 16px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
 }
 
 .topo-grid {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 20px;
+}
+
+@media (max-width: 768px) {
+  .topo-grid { grid-template-columns: 1fr; }
 }

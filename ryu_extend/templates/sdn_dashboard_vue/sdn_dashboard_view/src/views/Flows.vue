@@ -88,7 +88,7 @@ function selectSwitch(sw) {
           <label>Priority:
             <input v-model.number="form.priority" type="number" style="width: 70px" />
           </label>
-          <button @click="handleAdd">添加</button>
+          <button class="btn-primary" @click="handleAdd">添加</button>
         </div>
       </div>
 
