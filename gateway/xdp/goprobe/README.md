@@ -1,11 +1,11 @@
 # goprobe — eBPF 网关探针的 Go 版本
 
-数据面程序仍然是 C（`bpf/gw_filter_probe.c`，libbpf 薄封装）；Go 只负责用户态：
-加载/挂载 XDP、消费 ringbuf、与网关 `ProbeBridge` 走 Unix datagram JSON、
-回写 eBPF 缓存 map。
+数据面程序是 `../gw_filter_probe.c`（同一份 C，Makefile 按 libbpf 方式编译）；
+Go 只负责用户态：加载/挂载 XDP、消费 ringbuf、与网关 `ProbeBridge` 走
+Unix datagram JSON、回写 eBPF 缓存 map。
 
-filter 逻辑和结构体分别共享自 `../../gw_filter_logic.h` 与
-`../../gw_filter_types.h`，与 BCC 版只差 map 定义和入口。
+filter 逻辑和结构体分别共享自 `../gw_filter_logic.h` 与
+`../gw_filter_types.h`；BCC 版加载同一份 C，只是多传 `-DGW_USE_BCC`。
 
 这是 `gateway/xdp/gw_xdp_filter.py`（BCC + Python）的替代实现，协议完全兼容。
 
